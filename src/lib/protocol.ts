@@ -47,6 +47,7 @@ export type PopupRequest =
   | { type: "GET_STATE" }
   | { type: "START_JOB"; label: string }
   | { type: "OPEN_ICLOUD" }
+  | { type: "MARK_COPIED" }
   | { type: "ACK_REVIEW" };
 
 export interface PopupResponse {

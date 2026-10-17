@@ -242,6 +242,14 @@
       updatedAt: now
     };
   }
+  function markCopied(state2, now = Date.now()) {
+    return state2.status !== "success" || !state2.address || state2.copied ? state2 : {
+      ...state2,
+      copied: !0,
+      message: "\u30A2\u30C9\u30EC\u30B9\u3092\u30AF\u30EA\u30C3\u30D7\u30DC\u30FC\u30C9\u306B\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F\u3002",
+      updatedAt: now
+    };
+  }
   function acknowledgeReview(state2, now = Date.now()) {
     return state2.status !== "uncertain" ? state2 : {
       ...state2,
@@ -312,9 +320,9 @@
     let existing = await findIcloudTab();
     if (existing?.id !== void 0) {
       let tabId = existing.id;
-      return existing.url?.startsWith(ICLOUD_PLUS_URL) ? await chrome.tabs.reload(tabId) : await chrome.tabs.update(tabId, { url: ICLOUD_PLUS_URL, active: !0 }), await focusTab(tabId), tabId;
+      return existing.url?.startsWith(ICLOUD_PLUS_URL) || await chrome.tabs.update(tabId, { url: ICLOUD_PLUS_URL }), tabId;
     }
-    let created = await chrome.tabs.create({ url: ICLOUD_PLUS_URL, active: !0 });
+    let created = await chrome.tabs.create({ url: ICLOUD_PLUS_URL, active: !1 });
     if (created.id === void 0) throw new Error("iCloud tab could not be created");
     return created.id;
   }
@@ -388,7 +396,7 @@
       return;
     }
     if (state.jobId !== jobId || (commit({ ...state, tabId, message: STATUS_MESSAGES.preparing }), await waitForTabComplete(tabId, 15e3), state.jobId !== jobId)) return;
-    let deadline = Date.now() + PREPARE_TIMEOUT_MS;
+    let deadline = Date.now() + PREPARE_TIMEOUT_MS, reloaded = !1;
     for (; Date.now() < deadline; ) {
       if (state.jobId !== jobId) return;
       if (state.status === "ready") {
@@ -397,7 +405,16 @@
       }
       if (state.status === "awaiting_login" || state.status === "error" || state.status === "uncertain" || state.status === "success")
         return;
-      await sendToTab(tabId, { type: "PREPARE", jobId, label: state.label }, void 0, 8e3), await sleep(PREPARE_INTERVAL_MS);
+      if (await sendToTab(tabId, { type: "PREPARE", jobId, label: state.label }, void 0, 8e3) === void 0 && !reloaded) {
+        reloaded = !0;
+        try {
+          await chrome.tabs.reload(tabId);
+        } catch {
+        }
+        await waitForTabComplete(tabId, 15e3);
+        continue;
+      }
+      await sleep(PREPARE_INTERVAL_MS);
     }
     state.jobId === jobId && !state.createAttempted && commit({
       ...state,
@@ -436,6 +453,8 @@
         }
         return { ok: !0, state };
       }
+      case "MARK_COPIED":
+        return commit(markCopied(state)), { ok: !0, state };
       case "ACK_REVIEW":
         return commit(acknowledgeReview(state)), { ok: !0, state };
     }

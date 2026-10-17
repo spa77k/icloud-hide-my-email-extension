@@ -1,8 +1,9 @@
 # iCloud+「メールを非公開」作成コピー
 
-いま見ているサイト名をラベルにして、iCloud+の「メールを非公開」アドレスをChromeから作成し、クリップボードへコピーする Manifest V3 拡張機能です。
+いま見ているサイト名をラベルにして、iCloud+の「メールを非公開」アドレスを作成し、クリップボードへコピーする Manifest V3 拡張機能です。作成中もiCloudのタブへ切り替わらず、開いているサイトとポップアップから離れずに完了できます。
 
-- 拡張機能側の操作は **2クリック**（ツールバーのアイコン → 「作成してコピー」）。作成に成功すると自動でコピーします。
+- 拡張機能側の操作は **2クリック**（ツールバーのアイコン → 「作成してコピー」）。作成に成功すると、ポップアップ側で自動でコピーします。
+- 通常の作成ではiCloudのタブを前面に出しません。既存のiCloudタブを裏で再利用し、無ければ非アクティブのタブとして開きます。
 - 二重クリックや安易な再試行で、同じアドレスを重複作成しないようにしています。
 - パスワードや認証コードは扱いません。Appleのログイン画面で本人がサインインします。
 - 作成したアドレスを外部サービスへ送信しません。保存先はブラウザのセッション内だけです。
@@ -40,28 +41,34 @@ npm run build
 1. メールアドレスを入力したいサイトを開きます。
 2. ツールバーの拡張アイコンを押します。
 3. ラベルを確認します。現在のタブのホスト名（例: `example.com`）が自動で入ります。必要なら書き換えます。
-4. 「作成してコピー」を押します。
-5. 初回だけAppleのサインインが必要です。iCloudのタブでサインインし、ポップアップを開き直して、もう一度「作成してコピー」を押します。
+4. 「作成してコピー」を押します。このとき、開いているサイトとポップアップは切り替わりません。
+5. 初回だけAppleのサインインが必要です。ポップアップの「iCloudを開く」を押すとiCloudのタブが前面に出るので、そこでサインインします。サインイン後はポップアップに戻り、もう一度「作成してコピー」を押します。
 6. 作成できたら、アドレスがポップアップに表示され、自動でクリップボードへコピーされます。コピーされなかった場合は「コピー」を押します。
 
-作成後はiCloudのタブにアドレスが表示されたままになります。内容を確認したいときは、ポップアップの「iCloudで確認」から開けます。
+iCloudのタブは裏で開いたままになります。内容を確認したいときは、ポップアップの「iCloudで確認」から明示的に開けます。
+
+### ポップアップを閉じたとき
+
+作成中にポップアップを閉じても、ジョブは取り消されません。完了後にポップアップを開き直すと、結果が表示され、そのままコピーできます。
 
 ### 操作数と時間
 
 - 拡張機能側の操作: **2クリック**（アイコン、作成ボタン）。自動コピーに成功した場合、コピー操作は不要です。
-- ローカルの模擬iCloud画面を使ったE2Eでは、作成開始からアドレス表示・コピーまで **2.46〜2.54秒**（複数回）でした。
+- ローカルの模擬iCloud画面を使ったE2Eでは、作成開始からアドレス表示・コピーまで **2462ms** でした（裏タブのまま作成）。
 - 実際のiCloud+での作成時間は計測していません。実アカウントでアドレスを作成していないためです。「一瞬で終わる」とは保証できません。回線やiCloudの応答によって変わります。
 
 ## 仕組み
 
 Appleの公開APIではなく、iCloud.comの公式Web画面を拡張機能が操作します。
 
-1. `icloud.com/icloudplus` を開く
+1. `icloud.com/icloudplus` のタブを裏で用意する（既存タブを再利用、無ければ非アクティブで開く）
 2. 「メールを非公開」を開く
 3. 新しいアドレスの作成画面を開く
 4. ラベルを入力する
 5. 「メールアドレスを作成」を押す
-6. 画面に新しく表示されたアドレスを読み取り、クリップボードへコピーする
+6. 画面に表示されたアドレスを読み取り、フォーカスされているポップアップ側でクリップボードへコピーする
+
+バックグラウンドのタブではClipboard APIが使えないことがあるため、コピーはポップアップ側で行います。確定前に表示される候補アドレスはコピーせず、確定後だけコピーします。
 
 非公開APIを直接呼び出してはいません。ただし、iCloud.comの画面DOMや内部の画面遷移に依存します。Appleが公式に提供する拡張機能向けAPIではないため、画面が変わると動かなくなることがあります。
 
@@ -74,7 +81,9 @@ Appleの公開APIではなく、iCloud.comの公式Web画面を拡張機能が�
 - 対応するiCloudの画面は `www.icloud.com` です。Appleが別ホスト（betaなど）へ切り替えた場合は動作しません。
 - iCloudの表示言語は日本語と英語の主要な文言に対応しています。それ以外の言語や文言変更には対応できない場合があります。
 - ラベルの文字数・使用可能文字・作成できるアドレス数はApple側の仕様に従います。本拡張は上限を独自に判定しません。
-- 自動コピーは、iCloudのタブが前面にあるときに成功しやすいです。失敗した場合はポップアップの「コピー」を使ってください。
+- 通常の作成ではiCloudのタブを前面に出しません。前面になるのは、ユーザーが「iCloudを開く」を押したときだけです。
+- 自動コピーはポップアップ側で行います。ポップアップを閉じていた場合は、完了後に開き直すと結果が表示され、コピーできます。バックグラウンドのタブやService WorkerではClipboard APIが使えないことがあるため、iCloudのタブを前面にしてコピーする回避策は取りません。
+- 作成中にService Workerが休止した場合に備え、状態は `chrome.storage.session` に保存します。作成中に中断した場合は「未確認」として自動再試行を止めます。
 - 作成結果を確認できなかった場合、拡張は「未確認」として自動再試行を止めます。iCloudで結果を確認し、チェックを入れてから再開してください。重複作成を避けるための動作です。
 - Appleの利用規約・サポートの対象外です。業務や重要な用途で使う場合は、Appleの公式画面でも結果を確認してください。
 
@@ -100,7 +109,7 @@ Appleの公開APIではなく、iCloud.comの公式Web画面を拡張機能が�
 ## うまくいかないとき
 
 **「Appleのサインインが必要です」と出る**  
-iCloudのタブでサインインしてください。サインイン後にポップアップを開き直し、もう一度作成してください。
+ポップアップの「iCloudを開く」を押すとiCloudのタブが前面に出ます。そこでサインインし、ポップアップに戻って、もう一度作成してください。
 
 **「iCloudの画面を開けませんでした」と出る**  
 Appleのサインイン、通信状態、iCloud+の加入状況を確認してください。「iCloudを開く」で画面を確認できます。
@@ -112,7 +121,7 @@ Appleのサインイン、通信状態、iCloud+の加入状況を確認して�
 iCloud.comに「メールを非公開」が表示されるか確認してください。表示されない場合は、iCloud+の加入状況やウェブ限定アクセスを確認してください。
 
 **コピーされない**  
-iCloudのタブを前面にしてから、もう一度作成するか、ポップアップの「コピー」を押してください。
+ポップアップの「コピー」を押してください。iCloudのタブを前面にする必要はありません。ポップアップを閉じていた場合は、開き直すと結果が表示されます。
 
 ## 確認方法
 
@@ -123,8 +132,12 @@ npm run build
 npm run test:e2e
 ```
 
-- `npm test`: 27件の単体テスト（ログイン判定、セッション切れ、通信失敗、作成失敗、二重操作、状態復元）
-- `npm run test:e2e`: Chrome for Testingに拡張を読み込み、ローカルの模擬iCloud画面で作成・コピー・未ログイン・セッション切れ・作成失敗・二重開始を確認
+- `npm test`: 57件の単体テスト（ログイン判定、セッション切れ、通信失敗、作成失敗、二重操作、状態復元、コピー記録）
+- `npm run test:e2e`: Chrome for Testingに拡張を読み込み、ローカルの模擬iCloud画面で作成・コピー・未ログイン・セッション切れ・作成失敗・二重開始に加え、次を確認
+  - 元のタブがactiveのまま、iCloudタブがinactiveであること
+  - iCloudタブを再利用し、新規タブを増やさないこと
+  - 「iCloudを開く」を押したときだけ前面になること
+  - ポップアップを閉じてもジョブが続き、開き直すと結果を確認・コピーできること
 - 実アカウントでの作成・無効化・削除は行っていません
 
 実機で確認した範囲と未確認事項は [docs/verification.md](docs/verification.md) にあります。
@@ -168,3 +181,9 @@ CHROME_PATH="/path/to/Google Chrome for Testing" npm run test:e2e
 - [Declare permissions（Chrome for Developers）](https://developer.chrome.com/docs/extensions/develop/concepts/declare-permissions)
 - [The "activeTab" permission（Chrome for Developers）](https://developer.chrome.com/docs/extensions/develop/concepts/activeTab)
 - [chrome.storage（Chrome for Developers）](https://developer.chrome.com/docs/extensions/reference/api/storage)
+- [chrome.tabs（Chrome for Developers）](https://developer.chrome.com/docs/extensions/reference/api/tabs)
+- [chrome.windows（Chrome for Developers）](https://developer.chrome.com/docs/extensions/reference/api/windows)
+- [The extension service worker lifecycle（Chrome for Developers）](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle)
+- [chrome.offscreen（Chrome for Developers）](https://developer.chrome.com/docs/extensions/reference/api/offscreen)
+- [Permissions list（clipboardWrite）（Chrome for Developers）](https://developer.chrome.com/docs/extensions/reference/permissions-list)
+- [Clipboard API（MDN）](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API)

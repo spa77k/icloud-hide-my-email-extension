@@ -300,6 +300,16 @@ export function markAuth(state: JobState, code: "AUTH_REQUIRED" | "SESSION_EXPIR
   };
 }
 
+export function markCopied(state: JobState, now = Date.now()): JobState {
+  if (state.status !== "success" || !state.address || state.copied) return state;
+  return {
+    ...state,
+    copied: true,
+    message: "アドレスをクリップボードにコピーしました。",
+    updatedAt: now,
+  };
+}
+
 export function acknowledgeReview(state: JobState, now = Date.now()): JobState {
   if (state.status !== "uncertain") return state;
   return {

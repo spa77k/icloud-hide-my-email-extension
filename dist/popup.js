@@ -24,7 +24,7 @@
   }
 
   // src/popup.ts
-  var IDLE_MESSAGE = "\u300C\u4F5C\u6210\u3057\u3066\u30B3\u30D4\u30FC\u300D\u3092\u62BC\u3059\u3068\u3001iCloud+\u306E\u753B\u9762\u3092\u958B\u3044\u3066\u4F5C\u6210\u3057\u307E\u3059\u3002\u521D\u56DE\u306FApple\u306E\u30B5\u30A4\u30F3\u30A4\u30F3\u304C\u5FC5\u8981\u3067\u3059\u3002", $ = (id) => document.getElementById(id), labelInput = $("label"), siteHint = $("site-hint"), createButton = $("create"), status = $("status"), result = $("result"), address = $("address"), copyButton = $("copy"), copyState = $("copy-state"), openButton = $("open"), review = $("review"), reviewCheck = $("review-check"), reviewButton = $("review-button"), currentState = null, labelTouched = !1, pollTimer = null;
+  var IDLE_MESSAGE = "\u300C\u4F5C\u6210\u3057\u3066\u30B3\u30D4\u30FC\u300D\u3092\u62BC\u3059\u3068\u3001iCloud+\u306E\u753B\u9762\u3092\u88CF\u3067\u6E96\u5099\u3057\u3066\u4F5C\u6210\u3057\u307E\u3059\u3002\u3053\u306E\u30BF\u30D6\u306F\u5207\u308A\u66FF\u308F\u308A\u307E\u305B\u3093\u3002\u521D\u56DE\u306FApple\u306E\u30B5\u30A4\u30F3\u30A4\u30F3\u304C\u5FC5\u8981\u3067\u3059\u3002", $ = (id) => document.getElementById(id), labelInput = $("label"), siteHint = $("site-hint"), createButton = $("create"), status = $("status"), result = $("result"), address = $("address"), copyButton = $("copy"), copyState = $("copy-state"), openButton = $("open"), review = $("review"), reviewCheck = $("review-check"), reviewButton = $("review-button"), currentState = null, labelTouched = !1, pollTimer = null, autoCopiedJobId = null;
   function setStatus(text, tone = "info") {
     status.textContent = text, status.dataset.tone = tone;
   }
@@ -73,7 +73,15 @@
         break;
     }
     let hasAddress = !!next.address;
-    result.hidden = !hasAddress, next.address ? (address.textContent = next.address, copyState.textContent = next.copied ? "\u30B3\u30D4\u30FC\u6E08\u307F" : "") : copyState.textContent = "", openButton.hidden = !(next.status === "awaiting_login" || next.status === "error" || next.status === "uncertain" || next.status === "success"), openButton.textContent = next.status === "success" ? "iCloud\u3067\u78BA\u8A8D" : "iCloud\u3092\u958B\u304F", review.hidden = next.status !== "uncertain", next.status !== "uncertain" ? (reviewCheck.checked = !1, reviewButton.disabled = !0) : reviewButton.disabled = !reviewCheck.checked, schedulePolling();
+    result.hidden = !hasAddress, next.address ? (address.textContent = next.address, copyState.textContent = next.copied ? "\u30B3\u30D4\u30FC\u6E08\u307F" : "") : copyState.textContent = "", openButton.hidden = !(next.status === "awaiting_login" || next.status === "error" || next.status === "uncertain" || next.status === "success"), openButton.textContent = next.status === "success" ? "iCloud\u3067\u78BA\u8A8D" : "iCloud\u3092\u958B\u304F", review.hidden = next.status !== "uncertain", next.status !== "uncertain" ? (reviewCheck.checked = !1, reviewButton.disabled = !0) : reviewButton.disabled = !reviewCheck.checked, schedulePolling(), maybeAutoCopy(next);
+  }
+  async function maybeAutoCopy(next) {
+    if (next.status !== "success" || !next.address || autoCopiedJobId === next.jobId) return;
+    if (autoCopiedJobId = next.jobId, next.copied) {
+      copyState.textContent = "\u30B3\u30D4\u30FC\u6E08\u307F";
+      return;
+    }
+    await copyToClipboard(next.address) ? (copyState.textContent = "\u30B3\u30D4\u30FC\u6E08\u307F", setStatus("\u30A2\u30C9\u30EC\u30B9\u3092\u30AF\u30EA\u30C3\u30D7\u30DC\u30FC\u30C9\u306B\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F\u3002", "success"), await send({ type: "MARK_COPIED" })) : setStatus("\u30A2\u30C9\u30EC\u30B9\u3092\u4F5C\u6210\u3057\u307E\u3057\u305F\u3002\u300C\u30B3\u30D4\u30FC\u300D\u3092\u62BC\u3057\u3066\u304F\u3060\u3055\u3044\u3002", "warning");
   }
   async function refresh() {
     let response = await send({ type: "GET_STATE" });
@@ -130,7 +138,7 @@
   copyButton.addEventListener("click", async () => {
     let value = currentState?.address;
     if (!value) return;
-    await copyToClipboard(value) ? (copyState.textContent = "\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F", setStatus("\u30A2\u30C9\u30EC\u30B9\u3092\u30AF\u30EA\u30C3\u30D7\u30DC\u30FC\u30C9\u306B\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F\u3002", "success")) : setStatus("\u30B3\u30D4\u30FC\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u30A2\u30C9\u30EC\u30B9\u3092\u9078\u629E\u3057\u3066\u30B3\u30D4\u30FC\u3057\u3066\u304F\u3060\u3055\u3044\u3002", "error");
+    await copyToClipboard(value) ? (copyState.textContent = "\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F", setStatus("\u30A2\u30C9\u30EC\u30B9\u3092\u30AF\u30EA\u30C3\u30D7\u30DC\u30FC\u30C9\u306B\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F\u3002", "success"), await send({ type: "MARK_COPIED" })) : setStatus("\u30B3\u30D4\u30FC\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u30A2\u30C9\u30EC\u30B9\u3092\u9078\u629E\u3057\u3066\u30B3\u30D4\u30FC\u3057\u3066\u304F\u3060\u3055\u3044\u3002", "error");
   });
   openButton.addEventListener("click", () => {
     send({ type: "OPEN_ICLOUD" });

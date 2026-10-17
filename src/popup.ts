@@ -2,7 +2,7 @@ import { labelFromTab, sanitizeLabel } from "./lib/label";
 import type { JobState, PopupRequest, PopupResponse } from "./lib/protocol";
 
 const IDLE_MESSAGE =
-  "「作成してコピー」を押すと、iCloud+の画面を開いて作成します。初回はAppleのサインインが必要です。";
+  "「作成してコピー」を押すと、iCloud+の画面を裏で準備して作成します。このタブは切り替わりません。初回はAppleのサインインが必要です。";
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -22,6 +22,7 @@ const reviewButton = $<HTMLButtonElement>("review-button");
 let currentState: JobState | null = null;
 let labelTouched = false;
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
+let autoCopiedJobId: string | null = null;
 
 function setStatus(text: string, tone: "info" | "success" | "warning" | "error" = "info"): void {
   status.textContent = text;
@@ -142,6 +143,32 @@ function render(next: JobState): void {
   }
 
   schedulePolling();
+  void maybeAutoCopy(next);
+}
+
+/**
+ * 作成成功後にポップアップ側でコピーする。
+ * バックグラウンドのiCloudタブではClipboard APIが使えないことがあるため、
+ * フォーカスされているポップアップでコピーし、成功したら状態に記録する。
+ */
+async function maybeAutoCopy(next: JobState): Promise<void> {
+  if (next.status !== "success" || !next.address) return;
+  if (autoCopiedJobId === next.jobId) return;
+  autoCopiedJobId = next.jobId;
+
+  if (next.copied) {
+    copyState.textContent = "コピー済み";
+    return;
+  }
+
+  const copied = await copyToClipboard(next.address);
+  if (copied) {
+    copyState.textContent = "コピー済み";
+    setStatus("アドレスをクリップボードにコピーしました。", "success");
+    await send({ type: "MARK_COPIED" });
+  } else {
+    setStatus("アドレスを作成しました。「コピー」を押してください。", "warning");
+  }
 }
 
 async function refresh(): Promise<void> {
@@ -254,6 +281,7 @@ copyButton.addEventListener("click", async () => {
   if (copied) {
     copyState.textContent = "コピーしました";
     setStatus("アドレスをクリップボードにコピーしました。", "success");
+    await send({ type: "MARK_COPIED" });
   } else {
     setStatus("コピーできませんでした。アドレスを選択してコピーしてください。", "error");
   }

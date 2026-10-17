@@ -1,6 +1,7 @@
 import http from "node:http";
 
 const PORT = 4173;
+const SOURCE_PORT = 4174;
 let mode = "normal";
 
 const styles = `
@@ -75,7 +76,8 @@ function topPage(currentMode) {
       tileButton.addEventListener("click", () => {
         window.__tileClicks += 1;
         const frame = document.getElementById("hme");
-        if (frame && !frame.src) frame.src = "/hme?mode=" + encodeURIComponent(mode);
+        // 毎回、サーバーの現在モードでHMEフレームを読み直す。
+        if (frame) frame.src = "/hme?t=" + Date.now();
       });
     }
     const otherButton = document.getElementById("other-tile-button");
@@ -148,14 +150,22 @@ function hmePage(currentMode) {
         error.textContent = "メールアドレスを作成できませんでした。";
         return;
       }
-      dialog.hidden = true;
-      const address = window.__address || candidate.textContent || "";
-      window.__address = address;
-      const created = document.createElement("li");
-      created.className = "address-item";
-      created.id = "new-address";
-      created.textContent = address;
-      document.getElementById("addresses").appendChild(created);
+      const finish = () => {
+        dialog.hidden = true;
+        const address = window.__address || candidate.textContent || "";
+        window.__address = address;
+        const created = document.createElement("li");
+        created.className = "address-item";
+        created.id = "new-address";
+        created.textContent = address;
+        document.getElementById("addresses").appendChild(created);
+      };
+      // slow は、ポップアップを閉じてもジョブが続くことを確認するために遅らせる。
+      if (mode === "slow") {
+        setTimeout(finish, 1500);
+      } else {
+        finish();
+      }
     });
   </script>
 </body>
@@ -198,5 +208,18 @@ export function startMockServer() {
   return new Promise((resolve, reject) => {
     server.once("error", reject);
     server.listen(PORT, "127.0.0.1", () => resolve(server));
+  });
+}
+
+// 入力元サイト用。iCloudのモックとは別オリジンにして、
+// 拡張がiCloudタブと取り違えないようにする。
+export function startSourceServer() {
+  const server = http.createServer((request, response) => {
+    response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+    response.end("<!doctype html><html lang='ja'><head><title>Example Shop</title></head><body><h1>Example Shop</h1></body></html>");
+  });
+  return new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(SOURCE_PORT, "127.0.0.1", () => resolve(server));
   });
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   acknowledgeReview,
   applyContentEvent,
+  markCopied,
   newJobState,
   restoreState,
 } from "../src/lib/job";
@@ -146,5 +147,35 @@ describe("ジョブ状態", () => {
     expect(next.status).toBe("error");
     expect(next.createAttempted).toBe(false);
     expect(startBlockReason(next)).toBeNull();
+  });
+
+  it("成功とアドレスがあるときだけコピー済みにできる", () => {
+    const success = {
+      ...newJobState("job-1", "example.com", 100),
+      status: "success" as const,
+      address: "sample-address@icloud.com",
+      copied: false,
+    };
+    const copied = markCopied(success, 200);
+    expect(copied.copied).toBe(true);
+    expect(copied.message).toContain("クリップボード");
+    expect(copied.updatedAt).toBe(200);
+
+    // 失敗中・アドレス無しでは変化しない（誤ったコピー済み表示を防ぐ）。
+    const failed = { ...newJobState("job-2", "example.com", 100), status: "error" as const };
+    expect(markCopied(failed, 200)).toBe(failed);
+
+    const noAddress = { ...success, address: null };
+    expect(markCopied(noAddress, 200)).toBe(noAddress);
+  });
+
+  it("コピー済みの状態は再度変えない", () => {
+    const success = {
+      ...newJobState("job-1", "example.com", 100),
+      status: "success" as const,
+      address: "sample-address@icloud.com",
+      copied: true,
+    };
+    expect(markCopied(success, 200)).toBe(success);
   });
 });

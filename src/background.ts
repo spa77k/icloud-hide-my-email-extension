@@ -2,6 +2,7 @@ import {
   acknowledgeReview,
   applyContentEvent,
   failBeforeCreate,
+  markCopied,
   markUncertain,
   newJobState,
   restoreState,
@@ -112,20 +113,23 @@ async function focusTab(tabId: number): Promise<boolean> {
   }
 }
 
+/**
+ * 通常の作成ではiCloudタブを前面化しない。
+ * - 既存のiCloudタブがあれば再利用し、URLだけ裏で変える（activeは指定しない）。
+ * - 無ければ active:false で新しいタブを開く。
+ * 前面化するのは、ユーザーが明示的に「iCloudを開く」を押したときだけ（focusTab）。
+ */
 async function openIcloudTab(): Promise<number> {
   const existing = await findIcloudTab();
   if (existing?.id !== undefined) {
     const tabId = existing.id;
-    if (existing.url?.startsWith(ICLOUD_PLUS_URL)) {
-      await chrome.tabs.reload(tabId);
-    } else {
-      await chrome.tabs.update(tabId, { url: ICLOUD_PLUS_URL, active: true });
+    if (!existing.url?.startsWith(ICLOUD_PLUS_URL)) {
+      await chrome.tabs.update(tabId, { url: ICLOUD_PLUS_URL });
     }
-    await focusTab(tabId);
     return tabId;
   }
 
-  const created = await chrome.tabs.create({ url: ICLOUD_PLUS_URL, active: true });
+  const created = await chrome.tabs.create({ url: ICLOUD_PLUS_URL, active: false });
   if (created.id === undefined) throw new Error("iCloud tab could not be created");
   return created.id;
 }
@@ -233,6 +237,7 @@ async function runJob(jobId: string): Promise<void> {
   if (state.jobId !== jobId) return;
 
   const deadline = Date.now() + PREPARE_TIMEOUT_MS;
+  let reloaded = false;
   while (Date.now() < deadline) {
     if (state.jobId !== jobId) return;
     if (state.status === "ready") {
@@ -247,7 +252,19 @@ async function runJob(jobId: string): Promise<void> {
     ) {
       return;
     }
-    await sendToTab(tabId, { type: "PREPARE", jobId, label: state.label }, undefined, 8000);
+    const response = await sendToTab(tabId, { type: "PREPARE", jobId, label: state.label }, undefined, 8000);
+    if (response === undefined && !reloaded) {
+      // タブが読み込み済みでも、拡張の再読み込み後などはコンテンツスクリプトが
+      // 入っていないことがある。前面化せず、裏のまま一度だけ再読み込みして再試行する。
+      reloaded = true;
+      try {
+        await chrome.tabs.reload(tabId);
+      } catch {
+        // タブが閉じられていた場合は、このあとのタイムアウトで案内する。
+      }
+      await waitForTabComplete(tabId, 15000);
+      continue;
+    }
     await sleep(PREPARE_INTERVAL_MS);
   }
 
@@ -310,6 +327,10 @@ async function handlePopupMessage(message: PopupRequest): Promise<PopupResponse>
       }
       return { ok: true, state };
     }
+
+    case "MARK_COPIED":
+      commit(markCopied(state));
+      return { ok: true, state };
 
     case "ACK_REVIEW":
       commit(acknowledgeReview(state));

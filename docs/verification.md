@@ -8,9 +8,9 @@
 | チェック | コマンド | 結果 |
 | --- | --- | --- |
 | 型チェック | `npm run typecheck` | 成功 |
-| 単体テスト | `npm test` | 55件すべて成功 |
+| 単体テスト | `npm test` | 57件すべて成功 |
 | 本番ビルド | `npm run build` | 成功（`dist/` を生成） |
-| Chrome E2E | `npm run test:e2e` | 5シナリオすべて成功 |
+| Chrome E2E | `npm run test:e2e` | 8シナリオすべて成功 |
 
 ### 単体テストの内訳
 
@@ -217,3 +217,56 @@ E2E「作成成功」の実測:
 - 未確認: 修正後の拡張機能を実機のログイン済みiCloud+で動かし、実際の「メールアドレスを作成」を確定して作成・コピーまで通すことは確認していません。実アカウントのアドレス作成・無効化・削除は行っていません。
 - 模擬画面で確認したこと: `ui-panel` 祖先の下に候補再生成ボタンと `div` 内の確定ボタンがある構造で、確定1回・候補再生成0回・候補と一致するアドレスの成功・コピー。候補だけが出た場合に成功扱いしないこと。
 - 読み込み済み拡張への反映手順は 7.5 と同じ（`npm run build` 済み、`chrome://extensions` で更新、iCloud+タブを再読み込み）。
+
+## 9. iCloudタブを前面に出さずに作成する変更（2026-10-17 追記）
+
+### 9.1 目的
+
+「毎回iCloudに遷移するのが面倒」という要望に対し、通常の作成ではiCloudタブを前面化せず、現在のサイトとポップアップに留まったまま作成と自動コピーを完了できるようにしました。前面化するのは、ユーザーが「iCloudを開く」を明示的に押したときだけです。
+
+### 9.2 公式に確認したこと（Chrome for Developers / MDN）
+
+Chrome for Developersの各ページを開いて確認しました。
+
+- `chrome.tabs.create` の `active`（省略可能・boolean）: 「Whether the tab should become the active tab in the window. Does not affect whether the window is focused (see windows.update). Defaults to true.」→ `active:false` で非アクティブのタブを作成でき、ウィンドウのフォーカスは変わりません。
+- `chrome.tabs.update` の `active`（省略可能）: 「Whether the tab should be active. Does not affect whether the window is focused (see windows.update).」また「Properties that are not specified in updateProperties are not modified.」→ `active` を指定しなければタブの前面/背面状態は変わりません。
+- `chrome.windows.update` の `focused`: 「If true, brings the window to the front; cannot be combined with the state 'minimized'. If false, brings the next window in the z-order to the front; can be combined with state 'minimized'.」→ ウィンドウを前面に出すのは `focused:true` を指定したときです。通常の作成では呼びません。
+- Service Workerのライフサイクル: 「Normally, Chrome terminates a service worker when one of the following conditions is met: After 30 seconds of inactivity. Receiving an event or calling an extension API resets this timer.」と、予期せぬ終了に備えてデータを永続化することが推奨されています。本拡張は状態を `chrome.storage.session` に保存し、作成中に中断した場合は「未確認」にします。
+- `chrome.offscreen`: 「Service workers don't have DOM access」であり、隠しドキュメントでDOM APIを使えること、`CLIPBOARD` の理由があること、「Offscreen documents can't be focused」が記載されています。ただし `offscreen` 権限が新たに必要になるため、今回は採用していません。
+- Permissions listの `clipboardWrite`: 「Lets the extension cut and copy items to the clipboard using the web platform Clipboard API.」→ 既存権限でポップアップからコピーできます。
+- Clipboard API（MDN・標準のリファレンス）: 「Writing requires either the clipboard-write permission or transient activation. If the permission is granted, it persists, and further transient activation is not required.」また「This API is not available in Web Workers」。Service WorkerにはDOMが無く、このAPIも使えません。
+
+公式記載と観測の区別: 上記は公式ドキュメント・MDNの記載です。実際にiCloudタブが非アクティブのまま作成できるか、ポップアップでコピーできるかは、下記の模擬E2Eで観測しました（実アカウントでは未確認）。
+
+### 9.3 変更
+
+- `src/background.ts`: 通常の作成で使う `openIcloudTab` を、既存のiCloudタブの再利用（URLが違う場合だけ `tabs.update({url})`、`active` は指定しない）と、無ければ `tabs.create({active:false})` に変更。`focusTab`（`tabs.update({active:true})` と `windows.update({focused:true})`）は `OPEN_ICLOUD` のときだけ使います。PREPAREに応答が無い場合は、前面化せず裏のまま一度だけ `tabs.reload` して再試行します。
+- `src/popup.ts` / `src/popup.html`: 作成成功後、フォーカスされているポップアップ側で自動コピーし、成功したら `MARK_COPIED` を送って状態に記録します。コピーできるまで「コピー済み」にはしません。
+- `src/lib/job.ts` / `src/lib/protocol.ts`: `markCopied` と `MARK_COPIED` を追加（成功＋アドレスがあるときだけ記録）。
+- 権限の追加はありません（`storage`、`activeTab`、`clipboardWrite`、`https://www.icloud.com/*` のまま）。
+
+### 9.4 検証結果
+
+| チェック | コマンド | 結果 |
+| --- | --- | --- |
+| 型チェック＋単体テスト＋本番ビルド | `npm run check` | 終了コード0、単体テスト57件すべて成功、`dist/` 更新 |
+| Chrome E2E | `npm run test:e2e` | 終了コード0、8シナリオすべて成功 |
+
+模擬E2Eで観測した値（ローカルHTTPサーバー、Chrome for Testing。実アカウントの値ではありません）:
+
+- 作成成功（裏タブ・自動コピー）: iCloudタブ `active:false`、前後でactiveタブ不変、入力元サイトの再読み込みなし、ポップアップの自動コピーでクリップボードが作成アドレスと一致、`copied:true`。2026-10-17の実行で2462ms。
+- iCloudタブを再利用: 作成後もiCloudタブは1枚、`active:false`。
+- 手動でiCloudを開く: `OPEN_ICLOUD` の後だけ `active:true`。
+- 未ログイン／セッション切れ: `awaiting_login` の案内。作成試行なし。
+- 作成失敗: `uncertain`、`address:null`、`copied:false`、クリップボードの内容は変更なし。
+- 二重開始: 採用は1つ、確定ボタンは1回。
+- ポップアップを閉じて再表示: ポップアップを閉じてもジョブが完了し、開き直すと結果を表示してコピーできる。
+
+E2Eの補足: 拡張ポップアップはPlaywrightではタブとして開きます（実際のポップアップとは異なるテスト都合です）。「元のタブがactiveのまま」は、実行前後でactiveタブIDが変わらず、iCloudタブがactiveでないことで確認しています。入力元サイトはiCloudモックと別オリジン（`127.0.0.1:4174`）に置き、マーカーが消えていないことで再読み込みされていないことを確認しています。また、模擬iCloudは以前のHME iframe状態を保持するため、モードを変えるシナリオではテスト側でiCloudタブを裏のまま再読み込みしています（拡張機能による再読み込みではありません）。
+
+### 9.5 実機確認と未確認の区別
+
+- 模擬E2Eで確認: iCloudタブを非アクティブで用意・再利用すること、前面化しないこと、ポップアップで自動コピーすること、ポップアップを閉じてもジョブが続くこと。
+- 未確認: 実際のBrave／Chromeのログイン済みiCloud+で、裏タブのままHMEアドレスを作成し、実ポップアップで自動コピーまで通すこと。実アカウントのアドレス作成・無効化・削除は行っていません。
+- 未確認: 作成中にService Workerが実際に休止した場合の継続。状態の保存と「未確認」への遷移は単体テストで確認していますが、実機で30秒以上の休止を挟む検証はしていません。
+- 未確認: Brave固有の挙動（クリップボード許可、バックグラウンドタブのタイマー抑制）。公式仕様とChrome for Testingの模擬で確認した範囲です。
