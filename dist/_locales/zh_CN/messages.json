@@ -1,0 +1,180 @@
+{
+  "extName": {
+    "message": "iCloud+ 隐藏我的电子邮件 创建与复制"
+  },
+  "extShortName": {
+    "message": "隐藏我的电子邮件"
+  },
+  "extDescription": {
+    "message": "以当前网站名称作为标签，创建 iCloud+“隐藏我的电子邮件”地址并复制到剪贴板。"
+  },
+  "actionTitle": {
+    "message": "创建隐藏我的电子邮件地址"
+  },
+  "popupTitle": {
+    "message": "隐藏我的电子邮件"
+  },
+  "heading": {
+    "message": "隐藏我的电子邮件"
+  },
+  "subtitle": {
+    "message": "创建并复制 iCloud+ 地址"
+  },
+  "labelText": {
+    "message": "标签"
+  },
+  "labelPlaceholder": {
+    "message": "例如：example.com"
+  },
+  "siteHintEmpty": {
+    "message": "请输入网站名称。"
+  },
+  "siteHintCurrent": {
+    "message": "当前标签页：$SITE$（可修改）",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "siteHintThisJob": {
+    "message": "本次创建的标签：$LABEL$",
+    "placeholders": {
+      "label": {
+        "content": "$1"
+      }
+    }
+  },
+  "siteHintEditable": {
+    "message": "网站名称可以自由修改。"
+  },
+  "createAndCopy": {
+    "message": "创建并复制"
+  },
+  "statusIdle": {
+    "message": "点击“创建并复制”后，扩展会在后台准备 iCloud+ 并创建地址。当前标签页不会切换。首次使用可能需要登录 Apple 账户。"
+  },
+  "statusOpening": {
+    "message": "正在打开 iCloud+ 页面…"
+  },
+  "statusPreparing": {
+    "message": "正在准备 iCloud+“隐藏我的电子邮件”页面…"
+  },
+  "statusReady": {
+    "message": "已输入标签，正在创建地址…"
+  },
+  "statusCreating": {
+    "message": "正在创建地址…请稍候，以避免重复创建。"
+  },
+  "statusSuccess": {
+    "message": "地址已创建。请点击“复制”。"
+  },
+  "statusSuccessCopied": {
+    "message": "地址已创建并复制到剪贴板。"
+  },
+  "statusUncertain": {
+    "message": "无法确认创建结果。请在 iCloud 中确认。"
+  },
+  "statusError": {
+    "message": "未能完成创建。"
+  },
+  "errAuthRequired": {
+    "message": "需要登录 Apple 账户。请打开 iCloud 并登录。"
+  },
+  "errSessionExpired": {
+    "message": "iCloud 会话已过期。请打开 iCloud 并重新登录。"
+  },
+  "errNetwork": {
+    "message": "网络连接失败。请检查连接后重试。"
+  },
+  "errNoIcloudPlus": {
+    "message": "无法打开“隐藏我的电子邮件”。请检查 iCloud+ 订阅状态。"
+  },
+  "errUiNotFound": {
+    "message": "未找到 iCloud+ 页面。界面可能已更改，请在 iCloud 中确认。"
+  },
+  "errCreateFailed": {
+    "message": "无法创建地址。请在 iCloud 页面中确认。"
+  },
+  "errTimeout": {
+    "message": "等待 iCloud 响应超时。请打开 iCloud 查看状态。"
+  },
+  "errResultUnknown": {
+    "message": "无法确认创建结果。请在 iCloud 中确认。"
+  },
+  "statusStateUnavailable": {
+    "message": "无法获取扩展状态。请重新打开弹窗。"
+  },
+  "statusCopied": {
+    "message": "地址已复制到剪贴板。"
+  },
+  "statusCreatedManual": {
+    "message": "地址已创建。请点击“复制”。"
+  },
+  "statusCopyFailed": {
+    "message": "复制失败。请选择地址后手动复制。"
+  },
+  "errorNoLabel": {
+    "message": "请输入标签。当前网站名称已自动填入。"
+  },
+  "errorStartFailed": {
+    "message": "无法开始创建。请重新打开弹窗。"
+  },
+  "errorReviewNeeded": {
+    "message": "请先确认上次的创建结果。为防止重复创建，扩展不会自动重试。"
+  },
+  "errorBusy": {
+    "message": "正在创建中，请等待完成。"
+  },
+  "buttonProcessing": {
+    "message": "处理中…"
+  },
+  "buttonPreparing": {
+    "message": "准备中…"
+  },
+  "buttonSignIn": {
+    "message": "登录后创建"
+  },
+  "buttonAnother": {
+    "message": "再创建一个"
+  },
+  "buttonReview": {
+    "message": "请确认结果"
+  },
+  "buttonRetry": {
+    "message": "重试"
+  },
+  "openIcloud": {
+    "message": "打开 iCloud"
+  },
+  "openIcloudCheck": {
+    "message": "在 iCloud 中确认"
+  },
+  "resultHeading": {
+    "message": "已创建的地址"
+  },
+  "copy": {
+    "message": "复制"
+  },
+  "copyStateCopied": {
+    "message": "已复制"
+  },
+  "copyStateCopiedNow": {
+    "message": "已复制"
+  },
+  "reviewLead": {
+    "message": "为防止重复创建，扩展不会自动重试。"
+  },
+  "reviewAria": {
+    "message": "查看上次结果"
+  },
+  "reviewCheck": {
+    "message": "我已在 iCloud 中确认结果"
+  },
+  "reviewButton": {
+    "message": "标记为已确认并继续"
+  },
+  "footer": {
+    "message": "本扩展不会处理密码或验证码。创建的地址仅保存在此浏览器会话中。"
+  }
+}

@@ -1,11 +1,13 @@
-# iCloud+「メールを非公開」作成コピー
+# iCloud+ 「メールを非公開」作成コピー
 
-いま見ているサイト名をラベルにして、iCloud+の「メールを非公開」アドレスを作成し、クリップボードへコピーする Manifest V3 拡張機能です。作成中もiCloudのタブへ切り替わらず、開いているサイトとポップアップから離れずに完了できます。
+[English](README.en.md) | [简体中文](README.zh-CN.md) | [한국어](README.ko.md)
 
-- 拡張機能側の操作は **2クリック**（ツールバーのアイコン → 「作成してコピー」）。作成に成功すると、ポップアップ側で自動でコピーします。
-- 通常の作成ではiCloudのタブを前面に出しません。既存のiCloudタブを裏で再利用し、無ければ非アクティブのタブとして開きます。
+いま見ているサイト名をラベルにして、iCloud+の「メールを非公開」（Hide My Email）アドレスを作成し、クリップボードへコピーする Chrome 拡張機能です。Manifest V3 に対応しています。
+
+- 拡張機能側の操作は **2クリック**（ツールバーのアイコン → 「作成してコピー」）。作成に成功すると、ポップアップ側で自動的にコピーします。
+- 通常の作成では iCloud のタブを前面に出しません。既存の iCloud タブを裏で再利用し、無ければ非アクティブのタブとして開きます。
 - 二重クリックや安易な再試行で、同じアドレスを重複作成しないようにしています。
-- パスワードや認証コードは扱いません。Appleのログイン画面で本人がサインインします。
+- パスワードや認証コードは扱いません。Apple のログイン画面で本人がサインインします。
 - 作成したアドレスを外部サービスへ送信しません。保存先はブラウザのセッション内だけです。
 
 ## 必要なもの
@@ -13,15 +15,15 @@
 1. Google Chrome 120 以上
 2. iCloud+ の契約（本人またはファミリー共有）
 3. Apple Account の2ファクタ認証
-4. 普段使っているChromeでiCloudにサインインできること
+4. 普段使っている Chrome で iCloud にサインインできること
 
-作成には2ファクタ認証が必要です。iCloud+に加入していても、iCloud.comに「メールを非公開」が表示されない場合は、ウェブ限定アクセスなどの可能性があります（Appleの公式注記）。
+iCloud+ に加入していても、iCloud.com に「メールを非公開」が表示されない場合は、ウェブ限定アクセスなどの可能性があります（Apple の公式注記）。
 
 ## インストール
 
 このリポジトリには、読み込み用の `dist/` を同梱しています。ビルドは不要です。
 
-1. Chromeで `chrome://extensions` を開きます。
+1. Chrome で `chrome://extensions` を開きます。
 2. 右上の「デベロッパー モード」をオンにします。
 3. 「パッケージ化されていない拡張機能を読み込む」を押します。
 4. このプロジェクトの `dist` フォルダを選びます。
@@ -42,10 +44,10 @@ npm run build
 2. ツールバーの拡張アイコンを押します。
 3. ラベルを確認します。現在のタブのホスト名（例: `example.com`）が自動で入ります。必要なら書き換えます。
 4. 「作成してコピー」を押します。このとき、開いているサイトとポップアップは切り替わりません。
-5. 初回だけAppleのサインインが必要です。ポップアップの「iCloudを開く」を押すとiCloudのタブが前面に出るので、そこでサインインします。サインイン後はポップアップに戻り、もう一度「作成してコピー」を押します。
+5. 初回だけ Apple のサインインが必要です。ポップアップの「iCloudを開く」を押すと iCloud のタブが前面に出るので、そこでサインインします。サインイン後はポップアップに戻り、もう一度「作成してコピー」を押します。
 6. 作成できたら、アドレスがポップアップに表示され、自動でクリップボードへコピーされます。コピーされなかった場合は「コピー」を押します。
 
-iCloudのタブは裏で開いたままになります。内容を確認したいときは、ポップアップの「iCloudで確認」から明示的に開けます。
+iCloud のタブは裏で開いたままになります。内容を確認したいときは、ポップアップの「iCloudで確認」から明示的に開けます。
 
 ### ポップアップを閉じたとき
 
@@ -54,126 +56,106 @@ iCloudのタブは裏で開いたままになります。内容を確認した�
 ### 操作数と時間
 
 - 拡張機能側の操作: **2クリック**（アイコン、作成ボタン）。自動コピーに成功した場合、コピー操作は不要です。
-- ローカルの模擬iCloud画面を使ったE2Eで、裏タブのままアドレスの作成・表示・コピーと連続作成を確認しています。実際のiCloudでの所要時間は未計測です。
-- 実際のiCloud+での作成時間は計測していません。実アカウントでアドレスを作成していないためです。「一瞬で終わる」とは保証できません。回線やiCloudの応答によって変わります。
+- 実際の iCloud+ での作成時間は計測していません。回線や iCloud の応答によって変わります。
 
 ## 仕組み
 
-Appleの公開APIではなく、iCloud.comの公式Web画面を拡張機能が操作します。
+Apple の公開 API ではなく、iCloud.com の公式 Web 画面を拡張機能が操作します。
 
 1. `icloud.com/icloudplus` のタブを裏で用意する（既存タブを再利用、無ければ非アクティブで開く）
 2. 「メールを非公開」を開く
 3. 新しいアドレスの作成画面を開く
 4. ラベルを入力する
 5. 「メールアドレスを作成」を押す
-6. 作成画面の候補アドレスと、確定後の結果（一覧項目のラベル見出し＋アドレス、または作成済み詳細画面の非公開アドレス欄）を突き合わせて、今回作成したHMEだけを読み取り、フォーカスされているポップアップ側でクリップボードへコピーする（iCloud側のcontent scriptはコピーしない）
+6. 作成画面の候補アドレスと、確定後の結果（一覧項目のラベル見出し＋アドレス、または作成済み詳細画面の非公開アドレス欄）を突き合わせて、今回作成した HME だけを読み取り、フォーカスされているポップアップ側でクリップボードへコピーする
 
-作成画面の候補は作成ダイアログの中だけから取ります。転送先・アカウントのメール・既存一覧・メモ欄・非表示のアドレスは候補にも作成結果にもしません。確定後は、保持した今回の候補と一致し、今回のラベル見出しが完全一致する一覧項目か、作成済み詳細画面（`.EmailDetail`）の非公開アドレス欄（`.EmailDetail-hmeField`）が確認できた場合だけ成功にします。詳細画面では転送先欄（`.EmailDetail-forwardToField`）は読みません。候補を1つに特定できない場合、候補が確定時に変わった場合、一致する結果を確認できない場合は、成功扱いにせず「未確認」で止め、コピーしません。
+作成画面の候補は作成ダイアログの中だけから取ります。転送先・アカウントのメール・既存一覧・メモ欄・非表示のアドレスは候補にも作成結果にもしません。確定後は、保持した今回の候補と一致し、今回のラベル見出しが完全一致する一覧項目か、作成済み詳細画面の非公開アドレス欄が確認できた場合だけ成功にします。候補を1つに特定できない場合、候補が確定時に変わった場合、一致する結果を確認できない場合は、成功扱いにせず「未確認」で止め、コピーしません。
 
-バックグラウンドのタブではClipboard APIが使えないことがあるため、コピーはポップアップ側で行います。確定前に表示される候補アドレスはコピーせず、確定後だけコピーします。
+バックグラウンドのタブでは Clipboard API が使えないことがあるため、コピーはポップアップ側で行います。確定前に表示される候補アドレスはコピーせず、確定後だけコピーします。
 
-非公開APIを直接呼び出してはいません。ただし、iCloud.comの画面DOMや内部の画面遷移に依存します。Appleが公式に提供する拡張機能向けAPIではないため、画面が変わると動かなくなることがあります。
+非公開 API を直接呼び出してはいません。ただし、iCloud.com の画面 DOM や内部の画面遷移に依存します。Apple が公式に提供する拡張機能向け API ではないため、画面が変わると動かなくなることがあります。
 
-詳しい調査結果と、公式に書かれていること／書かれていないことの区別は [docs/research.md](docs/research.md) にまとめています。
+## 対応言語
 
-## 制約
+拡張機能の利用者向け UI は、次の4言語に対応しています。
 
-- Appleの公開APIには、HMEアドレスを任意に作成するエンドポイントが公式ドキュメント上に見当たりません。本拡張は画面操作で作成します。
-- iCloud+の契約と2ファクタ認証が必要です。同じApple AccountでiCloud.comにサインインしている必要があります。
-- 対応するiCloudの画面は `www.icloud.com` です。Appleが別ホスト（betaなど）へ切り替えた場合は動作しません。
-- iCloudの表示言語は日本語と英語の主要な文言に対応しています。それ以外の言語や文言変更には対応できない場合があります。
-- ラベルの文字数・使用可能文字・作成できるアドレス数はApple側の仕様に従います。本拡張は上限を独自に判定しません。
-- 通常の作成ではiCloudのタブを前面に出しません。前面になるのは、ユーザーが「iCloudを開く」を押したときだけです。
-- 自動コピーはポップアップ側だけで行います。iCloudのタブ（背景文書）ではコピーしません。ポップアップを閉じていた場合は、完了後に開き直すと結果が表示され、コピーできます。バックグラウンドのタブやService WorkerではClipboard APIが使えないことがあるため、iCloudのタブを前面にしてコピーする回避策は取りません。
-- 作成中にService Workerが休止した場合に備え、状態は `chrome.storage.session` に保存します。作成中に中断した場合は「未確認」として自動再試行を止めます。
-- 作成結果を確認できなかった場合、拡張は「未確認」として自動再試行を止めます。iCloudで結果を確認し、チェックを入れてから再開してください。重複作成を避けるための動作です。
-- Appleの利用規約・サポートの対象外です。業務や重要な用途で使う場合は、Appleの公式画面でも結果を確認してください。
+- 日本語
+- 英語
+- 中国語（簡体字）
+- 韓国語
+
+表示言語は Chrome の UI 言語に合わせて自動で切り替わります。iCloud.com 側の画面操作は、日本語と英語の主要な文言を対象に実装・模擬テストしています。中国語・韓国語の iCloud 画面での動作は未確認です。ラベルの照合は言語に依存せず、入力したラベルと iCloud 側の見出しを完全一致で比較します。
+
+## 制約と未確認事項
+
+- Apple の公開 API には、HME アドレスを任意に作成するエンドポイントが公式ドキュメント上に見当たりません。本拡張は画面操作で作成します。
+- iCloud+ の契約と2ファクタ認証が必要です。同じ Apple Account で iCloud.com にサインインしている必要があります。
+- 対応する iCloud の画面は `www.icloud.com` です。Apple が別ホスト（beta など）へ切り替えた場合は動作しません。
+- iCloud 画面の自動操作は、日本語と英語の主要な文言に対応しています。それ以外の言語や文言変更には対応できない場合があります。
+- ラベルの文字数・使用可能文字・作成できるアドレス数は Apple 側の仕様に従います。本拡張は上限を独自に判定しません。
+- 通常の作成では iCloud のタブを前面に出しません。前面になるのは、ユーザーが「iCloudを開く」を押したときだけです。
+- 自動コピーはポップアップ側だけで行います。iCloud のタブ（背景文書）ではコピーしません。ポップアップを閉じていた場合は、完了後に開き直すと結果が表示され、コピーできます。
+- 作成中に Service Worker が休止した場合に備え、状態は `chrome.storage.session` に保存します。作成中に中断した場合は「未確認」として自動再試行を止めます。
+- 作成結果を確認できなかった場合、拡張は「未確認」として自動再試行を止めます。iCloud で結果を確認し、チェックを入れてから再開してください。重複作成を避けるための動作です。
+- **実際のログイン済み iCloud+ アカウントでのアドレス作成は未確認です。** 検証は単体テストと、ローカルの模擬 iCloud 画面を使った Chrome E2E が中心です。実アカウントで使う場合は、Apple の公式画面でも結果を確認してください。
+- Apple の利用規約・サポートの対象外です。業務や重要な用途で使う場合は、Apple の公式画面でも結果を確認してください。
+- 本拡張は Apple とは関係のない非公式のツールです。
 
 ## 権限
 
 | 権限 | 用途 |
 | --- | --- |
 | `storage` | 作成状況と結果を `chrome.storage.session` に一時保存するため |
-| `activeTab` | ポップアップを開いたときだけ、現在のタブのURL・タイトルをラベル候補に使うため |
+| `activeTab` | ポップアップを開いたときだけ、現在のタブの URL・タイトルをラベル候補に使うため |
 | `clipboardWrite` | 作成したアドレスをクリップボードへコピーするため |
-| `https://www.icloud.com/*` | iCloud.comの「メールを非公開」画面を操作するため |
+| `https://www.icloud.com/*` | iCloud.com の「メールを非公開」画面を操作するため |
 
 `cookies`、`tabs`、`webRequest`、`scripting`、`<all_urls>` は要求していません。ブラウザの保護機能を無効にする操作もしません。
 
 ## プライバシー
 
-- パスワード、認証コード、Cookieを読み取り・保存・送信しません。
+- パスワード、認証コード、Cookie を読み取り・保存・送信しません。
 - 作成したアドレスは、拡張機能のセッションストレージとクリップボードにだけ置きます。`chrome.storage.session` はブラウザを再起動すると消えます。
-- 外部のサーバーへ通信しません。通信するのは、ユーザーが開いたiCloud.comの画面とAppleの間だけです。
+- 外部のサーバーへ通信しません。通信するのは、ユーザーが開いた iCloud.com の画面と Apple の間だけです。
 - 拡張機能のログにアドレスや認証情報を出しません。
 - 二重作成を防ぐため、作成ボタンを押した事実とジョブ状態だけをセッション内に残します。
 
 ## うまくいかないとき
 
-**「Appleのサインインが必要です」と出る**  
-ポップアップの「iCloudを開く」を押すとiCloudのタブが前面に出ます。そこでサインインし、ポップアップに戻って、もう一度作成してください。
+**「Appleのサインインが必要です」と出る**<br>
+ポップアップの「iCloudを開く」を押すと iCloud のタブが前面に出ます。そこでサインインし、ポップアップに戻って、もう一度作成してください。
 
-**「iCloudの画面を開けませんでした」と出る**  
-Appleのサインイン、通信状態、iCloud+の加入状況を確認してください。「iCloudを開く」で画面を確認できます。
+**「iCloudの画面を開けませんでした」と出る**<br>
+Apple のサインイン、通信状態、iCloud+ の加入状況を確認してください。「iCloudを開く」で画面を確認できます。
 
-**「作成結果を確認できませんでした」と出る**  
+**「作成結果を確認できませんでした」と出る**<br>
 二重作成を防ぐため、自動では再試行しません。「iCloudで確認」を開き、同じラベルのアドレスが増えていないか確認してください。確認できたら、チェックを入れて「確認済みにして再開」を押します。
 
-**「iCloud+の画面が見つかりませんでした」と出る**  
-iCloud.comに「メールを非公開」が表示されるか確認してください。表示されない場合は、iCloud+の加入状況やウェブ限定アクセスを確認してください。
+**「iCloud+の画面が見つかりませんでした」と出る**<br>
+iCloud.com に「メールを非公開」が表示されるか確認してください。表示されない場合は、iCloud+ の加入状況やウェブ限定アクセスを確認してください。
 
-**コピーされない**  
-ポップアップの「コピー」を押してください。iCloudのタブを前面にする必要はありません。ポップアップを閉じていた場合は、開き直すと結果が表示されます。
+**コピーされない**<br>
+ポップアップの「コピー」を押してください。iCloud のタブを前面にする必要はありません。ポップアップを閉じていた場合は、開き直すと結果が表示されます。
 
-## 確認方法
+## ビルドとテスト
 
 ```bash
+npm install
 npm run typecheck
 npm test
 npm run build
 npm run test:e2e
 ```
 
-- `npm test`: 78件の単体テスト（ログイン判定、セッション切れ、通信失敗、作成失敗、二重操作、状態復元、コピー記録、再読み込み判定、転送先・同一ドメインの候補/結果の識別、作成済み詳細画面の照合、詳細画面からの新ジョブ準備）
-- `npm run test:e2e`: Chrome for Testingに拡張を読み込み、ローカルの模擬iCloud画面で作成・コピー・未ログイン・セッション切れ・作成失敗・二重開始に加え、次を確認
-  - 元のタブがactiveのまま、iCloudタブがinactiveであること
-  - 同じiCloud画面からreloadなしで2件目を作成し、別アドレスになること（タブは増やさない）
-  - 「iCloudを開く」を押したときだけ前面になること
-  - ポップアップを閉じたまま完了し、開き直すと結果を確認・コピーできること（背景文書ではコピーしないこと）
-  - 転送先・アカウント・メモ・hiddenに同じ`@icloud.com`のアドレスを混在させても、返る値とコピー値が今回のHMEになること
-  - 作成済み詳細画面（`.EmailDetail`）で非公開アドレス欄とラベルを根拠に今回のHMEを返し、転送先欄を返さないこと
-  - 詳細画面から読み取り専用の「戻る」で一覧に戻り、同じタブ・iframeのまま3件連続作成できること（戻る2回・確定3回・無効化0回）
-- 実アカウントでの作成・無効化・削除は行っていません
-
-実機で確認した範囲と未確認事項は [docs/verification.md](docs/verification.md) にあります。
-
-## 開発
-
-```text
-src/
-  manifest.json       Manifest V3
-  background.ts       ジョブ管理、タブ操作、二重開始の防止
-  content.ts          iCloud画面での準備・作成・コピー
-  popup.html/css/ts   日本語UI
-  lib/hme/            DOM操作と作成フロー
-  lib/job.ts          状態遷移と復元
-tests/
-  *.test.ts           単体テスト
-  e2e/                模擬iCloud画面でのChrome E2E
-```
-
-主なコマンド:
-
-```bash
-npm run check       # 型チェック、単体テスト、本番ビルド
-npm run test:e2e    # E2EビルドとChromeでの通し確認
-```
-
-E2Eは拡張機能の読み込みに対応したChrome for Testing（またはChromium）を使います。別の場所にある場合は `CHROME_PATH` を指定してください。
+- `npm run check`: 型チェック、単体テスト、本番ビルドをまとめて実行します。
+- `npm run test:e2e`: Chrome for Testing（または Chromium）に拡張機能を読み込み、ローカルの模擬 iCloud 画面で作成・コピー・未ログイン・セッション切れ・作成失敗などを確認します。
+- E2E で別の Chrome を使う場合は `CHROME_PATH` を指定してください。
 
 ```bash
 CHROME_PATH="/path/to/Google Chrome for Testing" npm run test:e2e
 ```
+
+`dist/` は `npm run build` で生成されます。リリース用のパッケージ署名や Chrome Web Store への公開は行っていません。
 
 ## 公式資料
 
@@ -181,14 +163,5 @@ CHROME_PATH="/path/to/Google Chrome for Testing" npm run test:e2e
 - [iCloud.comで「メールを非公開」のアドレスを作成および編集する（日本語）](https://support.apple.com/ja-jp/guide/icloud/mm1a876f7aed/icloud)
 - [Create and edit Hide My Email addresses on iCloud.com（英語）](https://support.apple.com/en-us/guide/icloud/mm1a876f7aed/icloud)
 - [「Appleでサインイン」で「メールを非公開」を使う方法（日本語）](https://support.apple.com/ja-jp/105078)
-- [Sign in with Apple REST API（Apple Developer）](https://developer.apple.com/documentation/signinwithapplerestapi)
 - [Manifest file format（Chrome for Developers）](https://developer.chrome.com/docs/extensions/reference/manifest)
-- [Declare permissions（Chrome for Developers）](https://developer.chrome.com/docs/extensions/develop/concepts/declare-permissions)
-- [The "activeTab" permission（Chrome for Developers）](https://developer.chrome.com/docs/extensions/develop/concepts/activeTab)
-- [chrome.storage（Chrome for Developers）](https://developer.chrome.com/docs/extensions/reference/api/storage)
-- [chrome.tabs（Chrome for Developers）](https://developer.chrome.com/docs/extensions/reference/api/tabs)
-- [chrome.windows（Chrome for Developers）](https://developer.chrome.com/docs/extensions/reference/api/windows)
-- [The extension service worker lifecycle（Chrome for Developers）](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle)
-- [chrome.offscreen（Chrome for Developers）](https://developer.chrome.com/docs/extensions/reference/api/offscreen)
-- [Permissions list（clipboardWrite）（Chrome for Developers）](https://developer.chrome.com/docs/extensions/reference/permissions-list)
-- [Clipboard API（MDN）](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API)
+- [Chrome extension internationalization（Chrome for Developers）](https://developer.chrome.com/docs/extensions/reference/api/i18n)

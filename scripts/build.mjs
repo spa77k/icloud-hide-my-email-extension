@@ -35,11 +35,13 @@ for (const file of ["popup.html", "popup.css"]) {
   await cp(path.join(root, "src", file), path.join(outdir, file));
 }
 
+await cp(path.join(root, "src", "_locales"), path.join(outdir, "_locales"), { recursive: true });
+
 await cp(path.join(root, "icons"), path.join(outdir, "icons"), { recursive: true });
 
 const manifest = JSON.parse(await readFile(path.join(root, "src", "manifest.json"), "utf8"));
 if (e2e) {
-  manifest.name = `${manifest.name}（E2E）`;
+  manifest.name = "iCloud Hide My Email (E2E)";
   manifest.host_permissions = ["http://127.0.0.1:4173/*"];
   for (const script of manifest.content_scripts) {
     script.matches = ["http://127.0.0.1:4173/*"];

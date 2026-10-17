@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>メールを非公開</title>
+    <title data-i18n="popupTitle">メールを非公開</title>
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
@@ -11,13 +11,13 @@
       <header class="hero">
         <div class="mark" aria-hidden="true">@</div>
         <div>
-          <h1>メールを非公開</h1>
-          <p>iCloud+のアドレスを作成してコピー</p>
+          <h1 data-i18n="heading">メールを非公開</h1>
+          <p data-i18n="subtitle">iCloud+のアドレスを作成してコピー</p>
         </div>
       </header>
 
       <section class="field">
-        <label for="label">ラベル</label>
+        <label for="label" data-i18n="labelText">ラベル</label>
         <input
           id="label"
           type="text"
@@ -25,42 +25,43 @@
           autocomplete="off"
           spellcheck="false"
           placeholder="例: example.com"
+          data-i18n-placeholder="labelPlaceholder"
         />
-        <p id="site-hint" class="hint">現在のタブのサイト名を入れています。変えられます。</p>
+        <p id="site-hint" class="hint" data-i18n="siteHintEmpty">現在のタブのサイト名を入れています。変えられます。</p>
       </section>
 
-      <button id="create" class="primary" type="button">作成してコピー</button>
+      <button id="create" class="primary" type="button" data-i18n="createAndCopy">作成してコピー</button>
 
-      <p id="status" class="status" role="status" aria-live="polite">
+      <p id="status" class="status" role="status" aria-live="polite" data-i18n="statusIdle">
         「作成してコピー」を押すと、iCloud+の画面を裏で準備して作成します。このタブは切り替わりません。初回はAppleのサインインが必要です。
       </p>
 
-      <section id="result" class="result" hidden aria-label="作成したアドレス">
+      <section id="result" class="result" hidden aria-label="作成したアドレス" data-i18n-aria-label="resultHeading">
         <div class="result-head">
-          <span>作成したアドレス</span>
+          <span data-i18n="resultHeading">作成したアドレス</span>
           <span id="copy-state" class="copy-state"></span>
         </div>
         <div class="address-row">
           <code id="address"></code>
-          <button id="copy" class="secondary" type="button">コピー</button>
+          <button id="copy" class="secondary" type="button" data-i18n="copy">コピー</button>
         </div>
       </section>
 
       <div class="actions">
-        <button id="open" class="link" type="button" hidden>iCloudを開く</button>
+        <button id="open" class="link" type="button" hidden data-i18n="openIcloud">iCloudを開く</button>
       </div>
 
-      <section id="review" class="review" hidden aria-label="前回の結果の確認">
-        <p>重複作成を防ぐため、自動では再試行していません。</p>
+      <section id="review" class="review" hidden aria-label="前回の結果の確認" data-i18n-aria-label="reviewAria">
+        <p data-i18n="reviewLead">重複作成を防ぐため、自動では再試行していません。</p>
         <label class="check">
           <input id="review-check" type="checkbox" />
-          iCloudで結果を確認しました
+          <span data-i18n="reviewCheck">iCloudで結果を確認しました</span>
         </label>
-        <button id="review-button" class="secondary" type="button" disabled>確認済みにして再開</button>
+        <button id="review-button" class="secondary" type="button" disabled data-i18n="reviewButton">確認済みにして再開</button>
       </section>
 
       <footer>
-        パスワード・認証コードは扱いません。作成したアドレスは、このブラウザのセッション内だけに保持します。
+        <span data-i18n="footer">パスワード・認証コードは扱いません。作成したアドレスは、このブラウザのセッション内だけに保持します。</span>
       </footer>
     </main>
     <script src="popup.js"></script>

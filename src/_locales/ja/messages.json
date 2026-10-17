@@ -1,0 +1,180 @@
+{
+  "extName": {
+    "message": "iCloud+ メールを非公開 作成コピー"
+  },
+  "extShortName": {
+    "message": "メールを非公開"
+  },
+  "extDescription": {
+    "message": "いま見ているサイト名をラベルに、iCloud+の「メールを非公開」アドレスを作成してクリップボードへコピーします。"
+  },
+  "actionTitle": {
+    "message": "メールを非公開を作成"
+  },
+  "popupTitle": {
+    "message": "メールを非公開"
+  },
+  "heading": {
+    "message": "メールを非公開"
+  },
+  "subtitle": {
+    "message": "iCloud+のアドレスを作成してコピー"
+  },
+  "labelText": {
+    "message": "ラベル"
+  },
+  "labelPlaceholder": {
+    "message": "例: example.com"
+  },
+  "siteHintEmpty": {
+    "message": "サイト名を入力してください。"
+  },
+  "siteHintCurrent": {
+    "message": "現在のタブ: $SITE$（変更できます）",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "siteHintThisJob": {
+    "message": "この作成のラベル: $LABEL$",
+    "placeholders": {
+      "label": {
+        "content": "$1"
+      }
+    }
+  },
+  "siteHintEditable": {
+    "message": "サイト名は自由に変更できます。"
+  },
+  "createAndCopy": {
+    "message": "作成してコピー"
+  },
+  "statusIdle": {
+    "message": "「作成してコピー」を押すと、iCloud+の画面を裏で準備して作成します。このタブは切り替わりません。初回はAppleのサインインが必要です。"
+  },
+  "statusOpening": {
+    "message": "iCloud+の画面を開いています…"
+  },
+  "statusPreparing": {
+    "message": "iCloud+の「メールを非公開」画面を準備しています…"
+  },
+  "statusReady": {
+    "message": "ラベルを入力しました。アドレスを作成しています…"
+  },
+  "statusCreating": {
+    "message": "アドレスを作成しています…（二重作成を防ぐため、そのままお待ちください）"
+  },
+  "statusSuccess": {
+    "message": "アドレスを作成しました。「コピー」を押してください。"
+  },
+  "statusSuccessCopied": {
+    "message": "アドレスを作成し、クリップボードにコピーしました。"
+  },
+  "statusUncertain": {
+    "message": "作成結果を確認できませんでした。iCloudで結果を確認してください。"
+  },
+  "statusError": {
+    "message": "作成を完了できませんでした。"
+  },
+  "errAuthRequired": {
+    "message": "Appleのサインインが必要です。iCloudを開いてサインインしてください。"
+  },
+  "errSessionExpired": {
+    "message": "iCloudのセッションが切れました。iCloudを開いてサインインし直してください。"
+  },
+  "errNetwork": {
+    "message": "通信に失敗しました。接続を確認してから、もう一度お試しください。"
+  },
+  "errNoIcloudPlus": {
+    "message": "「メールを非公開」を開けませんでした。iCloud+の加入状況を確認してください。"
+  },
+  "errUiNotFound": {
+    "message": "iCloud+の画面が見つかりませんでした。画面が変わった可能性があります。iCloudで確認してください。"
+  },
+  "errCreateFailed": {
+    "message": "アドレスを作成できませんでした。iCloudの画面で内容を確認してください。"
+  },
+  "errTimeout": {
+    "message": "iCloudの応答を待ちきれませんでした。iCloudを開いて状態を確認してください。"
+  },
+  "errResultUnknown": {
+    "message": "作成結果を確認できませんでした。iCloudで結果を確認してください。"
+  },
+  "statusStateUnavailable": {
+    "message": "拡張機能の状態を取得できませんでした。ポップアップを開き直してください。"
+  },
+  "statusCopied": {
+    "message": "アドレスをクリップボードにコピーしました。"
+  },
+  "statusCreatedManual": {
+    "message": "アドレスを作成しました。「コピー」を押してください。"
+  },
+  "statusCopyFailed": {
+    "message": "コピーできませんでした。アドレスを選択してコピーしてください。"
+  },
+  "errorNoLabel": {
+    "message": "ラベルを入力してください。現在のサイト名を自動で入れています。"
+  },
+  "errorStartFailed": {
+    "message": "作成を開始できませんでした。ポップアップを開き直してください。"
+  },
+  "errorReviewNeeded": {
+    "message": "前回の作成結果を確認してから再開してください。重複作成を防ぐため、自動では再試行しません。"
+  },
+  "errorBusy": {
+    "message": "作成処理中です。完了までそのままお待ちください。"
+  },
+  "buttonProcessing": {
+    "message": "処理中…"
+  },
+  "buttonPreparing": {
+    "message": "準備中…"
+  },
+  "buttonSignIn": {
+    "message": "サインイン後に作成"
+  },
+  "buttonAnother": {
+    "message": "もう1つ作成"
+  },
+  "buttonReview": {
+    "message": "結果を確認してください"
+  },
+  "buttonRetry": {
+    "message": "もう一度作成"
+  },
+  "openIcloud": {
+    "message": "iCloudを開く"
+  },
+  "openIcloudCheck": {
+    "message": "iCloudで確認"
+  },
+  "resultHeading": {
+    "message": "作成したアドレス"
+  },
+  "copy": {
+    "message": "コピー"
+  },
+  "copyStateCopied": {
+    "message": "コピー済み"
+  },
+  "copyStateCopiedNow": {
+    "message": "コピーしました"
+  },
+  "reviewLead": {
+    "message": "重複作成を防ぐため、自動では再試行していません。"
+  },
+  "reviewAria": {
+    "message": "前回の結果の確認"
+  },
+  "reviewCheck": {
+    "message": "iCloudで結果を確認しました"
+  },
+  "reviewButton": {
+    "message": "確認済みにして再開"
+  },
+  "footer": {
+    "message": "パスワード・認証コードは扱いません。作成したアドレスは、このブラウザのセッション内だけに保持します。"
+  }
+}

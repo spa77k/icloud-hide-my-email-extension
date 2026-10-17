@@ -29,9 +29,92 @@
   }
 
   // src/popup.ts
-  var IDLE_MESSAGE = "\u300C\u4F5C\u6210\u3057\u3066\u30B3\u30D4\u30FC\u300D\u3092\u62BC\u3059\u3068\u3001iCloud+\u306E\u753B\u9762\u3092\u88CF\u3067\u6E96\u5099\u3057\u3066\u4F5C\u6210\u3057\u307E\u3059\u3002\u3053\u306E\u30BF\u30D6\u306F\u5207\u308A\u66FF\u308F\u308A\u307E\u305B\u3093\u3002\u521D\u56DE\u306FApple\u306E\u30B5\u30A4\u30F3\u30A4\u30F3\u304C\u5FC5\u8981\u3067\u3059\u3002", $ = (id) => document.getElementById(id), labelInput = $("label"), siteHint = $("site-hint"), createButton = $("create"), status = $("status"), result = $("result"), address = $("address"), copyButton = $("copy"), copyState = $("copy-state"), openButton = $("open"), review = $("review"), reviewCheck = $("review-check"), reviewButton = $("review-button"), currentState = null, labelTouched = !1, pollTimer = null, autoCopiedJobId = null;
+  var $ = (id) => document.getElementById(id);
+  function translate(key, substitutions) {
+    try {
+      return chrome.i18n.getMessage(key, substitutions) || key;
+    } catch {
+      return key;
+    }
+  }
+  function uiLanguageTag() {
+    let language = "en";
+    try {
+      language = chrome.i18n.getUILanguage().toLowerCase();
+    } catch {
+    }
+    return language.startsWith("ja") ? "ja" : language.startsWith("zh") ? "zh-CN" : language.startsWith("ko") ? "ko" : "en";
+  }
+  function applyStaticTranslations() {
+    document.documentElement.lang = uiLanguageTag(), document.title = translate("popupTitle");
+    for (let element of document.querySelectorAll("[data-i18n]")) {
+      let key = element.dataset.i18n;
+      key && (element.textContent = translate(key));
+    }
+    for (let element of document.querySelectorAll("[data-i18n-placeholder]")) {
+      let key = element.dataset.i18nPlaceholder;
+      key && element.setAttribute("placeholder", translate(key));
+    }
+    for (let element of document.querySelectorAll("[data-i18n-aria-label]")) {
+      let key = element.dataset.i18nAriaLabel;
+      key && element.setAttribute("aria-label", translate(key));
+    }
+  }
+  applyStaticTranslations();
+  var labelInput = $("label"), siteHint = $("site-hint"), createButton = $("create"), status = $("status"), result = $("result"), address = $("address"), copyButton = $("copy"), copyState = $("copy-state"), openButton = $("open"), review = $("review"), reviewCheck = $("review-check"), reviewButton = $("review-button"), currentState = null, labelTouched = !1, pollTimer = null, autoCopiedJobId = null;
   function setStatus(text, tone = "info") {
     status.textContent = text, status.dataset.tone = tone;
+  }
+  function errorText(code) {
+    switch (code) {
+      case "AUTH_REQUIRED":
+        return translate("errAuthRequired");
+      case "SESSION_EXPIRED":
+        return translate("errSessionExpired");
+      case "NETWORK":
+        return translate("errNetwork");
+      case "NO_ICLOUD_PLUS":
+        return translate("errNoIcloudPlus");
+      case "UI_NOT_FOUND":
+        return translate("errUiNotFound");
+      case "CREATE_FAILED":
+        return translate("errCreateFailed");
+      case "TIMEOUT":
+        return translate("errTimeout");
+      case "RESULT_UNKNOWN":
+        return translate("errResultUnknown");
+      default:
+        return translate("statusError");
+    }
+  }
+  function statusView(next) {
+    switch (next.status) {
+      case "idle":
+        return { text: translate("statusIdle"), tone: "info" };
+      case "preparing":
+        return { text: translate("statusPreparing"), tone: "info" };
+      case "ready":
+        return { text: translate("statusReady"), tone: "info" };
+      case "creating":
+        return { text: translate("statusCreating"), tone: "warning" };
+      case "awaiting_login":
+        return {
+          text: next.errorCode === "SESSION_EXPIRED" ? translate("errSessionExpired") : translate("errAuthRequired"),
+          tone: "warning"
+        };
+      case "success":
+        return {
+          text: next.copied ? translate("statusSuccessCopied") : translate("statusSuccess"),
+          tone: "success"
+        };
+      case "uncertain":
+        return { text: translate("statusUncertain"), tone: "error" };
+      case "error":
+        return { text: errorText(next.errorCode), tone: "error" };
+    }
+  }
+  function setCopiedMarker(copied) {
+    copyState.dataset.copied = copied ? "true" : "false";
   }
   async function send(request) {
     try {
@@ -49,52 +132,50 @@
     }, 650));
   }
   function render(next) {
-    currentState = next, !labelTouched && next.label && (next.status === "preparing" || next.status === "ready" || next.status === "creating" || next.status === "awaiting_login" || next.status === "uncertain") && (labelInput.value = next.label), next.label && next.status !== "idle" && next.status !== "success" && next.status !== "error" && (siteHint.textContent = `\u3053\u306E\u4F5C\u6210\u306E\u30E9\u30D9\u30EB: ${next.label}`);
+    currentState = next, !labelTouched && next.label && (next.status === "preparing" || next.status === "ready" || next.status === "creating" || next.status === "awaiting_login" || next.status === "uncertain") && (labelInput.value = next.label), next.label && next.status !== "idle" && next.status !== "success" && next.status !== "error" && (siteHint.textContent = translate("siteHintThisJob", next.label));
     let working = next.status === "preparing" || next.status === "ready" || next.status === "creating";
-    switch (createButton.disabled = working || next.status === "uncertain", labelInput.disabled = working, next.status) {
+    createButton.disabled = working || next.status === "uncertain", labelInput.disabled = working;
+    let view = statusView(next);
+    switch (setStatus(view.text, view.tone), next.status) {
       case "idle":
-        createButton.textContent = "\u4F5C\u6210\u3057\u3066\u30B3\u30D4\u30FC", setStatus(IDLE_MESSAGE);
+        createButton.textContent = translate("createAndCopy");
         break;
       case "preparing":
-        createButton.textContent = "\u51E6\u7406\u4E2D\u2026", setStatus(next.message || "iCloud\u306E\u753B\u9762\u3092\u6E96\u5099\u3057\u3066\u3044\u307E\u3059\u2026");
-        break;
       case "ready":
-        createButton.textContent = "\u51E6\u7406\u4E2D\u2026", setStatus(next.message || "\u30A2\u30C9\u30EC\u30B9\u3092\u4F5C\u6210\u3057\u3066\u3044\u307E\u3059\u2026");
-        break;
       case "creating":
-        createButton.textContent = "\u51E6\u7406\u4E2D\u2026", setStatus(next.message || "\u30A2\u30C9\u30EC\u30B9\u3092\u4F5C\u6210\u3057\u3066\u3044\u307E\u3059\u2026", "warning");
+        createButton.textContent = translate("buttonProcessing");
         break;
       case "awaiting_login":
-        createButton.textContent = "\u30B5\u30A4\u30F3\u30A4\u30F3\u5F8C\u306B\u4F5C\u6210", setStatus(next.message, "warning");
+        createButton.textContent = translate("buttonSignIn");
         break;
       case "success":
-        createButton.textContent = "\u3082\u30461\u3064\u4F5C\u6210", setStatus(next.message, "success");
+        createButton.textContent = translate("buttonAnother");
         break;
       case "uncertain":
-        createButton.textContent = "\u7D50\u679C\u3092\u78BA\u8A8D\u3057\u3066\u304F\u3060\u3055\u3044", setStatus(next.message, "error");
+        createButton.textContent = translate("buttonReview");
         break;
       case "error":
-        createButton.textContent = "\u3082\u3046\u4E00\u5EA6\u4F5C\u6210", setStatus(next.message, "error");
+        createButton.textContent = translate("buttonRetry");
         break;
     }
     let hasAddress = !!next.address && next.verified;
-    result.hidden = !hasAddress, copyButton.disabled = !hasAddress, hasAddress ? (address.textContent = next.address, copyState.textContent = next.copied ? "\u30B3\u30D4\u30FC\u6E08\u307F" : "") : copyState.textContent = "", openButton.hidden = !(next.status === "awaiting_login" || next.status === "error" || next.status === "uncertain" || next.status === "success"), openButton.textContent = next.status === "success" ? "iCloud\u3067\u78BA\u8A8D" : "iCloud\u3092\u958B\u304F", review.hidden = next.status !== "uncertain", next.status !== "uncertain" ? (reviewCheck.checked = !1, reviewButton.disabled = !0) : reviewButton.disabled = !reviewCheck.checked, schedulePolling(), maybeAutoCopy(next);
+    result.hidden = !hasAddress, copyButton.disabled = !hasAddress, hasAddress ? (address.textContent = next.address, copyState.textContent = next.copied ? translate("copyStateCopied") : "") : copyState.textContent = "", setCopiedMarker(!!(hasAddress && next.copied)), openButton.hidden = !(next.status === "awaiting_login" || next.status === "error" || next.status === "uncertain" || next.status === "success"), openButton.textContent = next.status === "success" ? translate("openIcloudCheck") : translate("openIcloud"), review.hidden = next.status !== "uncertain", next.status !== "uncertain" ? (reviewCheck.checked = !1, reviewButton.disabled = !0) : reviewButton.disabled = !reviewCheck.checked, schedulePolling(), maybeAutoCopy(next);
   }
   async function maybeAutoCopy(next) {
     if (next.status !== "success" || !next.address) return;
     if (next.copied) {
-      copyState.textContent = "\u30B3\u30D4\u30FC\u6E08\u307F";
+      copyState.textContent = translate("copyStateCopied"), setCopiedMarker(!0);
       return;
     }
     if (!shouldAutoCopy(next) || autoCopiedJobId === next.jobId) return;
     autoCopiedJobId = next.jobId;
     let jobId = next.jobId, address2 = next.address, copied = await copyToClipboard(address2);
-    !currentState || currentState.jobId !== jobId || currentState.address !== address2 || (copied ? (copyState.textContent = "\u30B3\u30D4\u30FC\u6E08\u307F", setStatus("\u30A2\u30C9\u30EC\u30B9\u3092\u30AF\u30EA\u30C3\u30D7\u30DC\u30FC\u30C9\u306B\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F\u3002", "success"), await send({ type: "MARK_COPIED", jobId, address: address2 })) : setStatus("\u30A2\u30C9\u30EC\u30B9\u3092\u4F5C\u6210\u3057\u307E\u3057\u305F\u3002\u300C\u30B3\u30D4\u30FC\u300D\u3092\u62BC\u3057\u3066\u304F\u3060\u3055\u3044\u3002", "warning"));
+    !currentState || currentState.jobId !== jobId || currentState.address !== address2 || (copied ? (copyState.textContent = translate("copyStateCopied"), setCopiedMarker(!0), setStatus(translate("statusCopied"), "success"), await send({ type: "MARK_COPIED", jobId, address: address2 })) : setStatus(translate("statusCreatedManual"), "warning"));
   }
   async function refresh() {
     let response = await send({ type: "GET_STATE" });
     if (!response) {
-      setStatus("\u62E1\u5F35\u6A5F\u80FD\u306E\u72B6\u614B\u3092\u53D6\u5F97\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u30DD\u30C3\u30D7\u30A2\u30C3\u30D7\u3092\u958B\u304D\u76F4\u3057\u3066\u304F\u3060\u3055\u3044\u3002", "error");
+      setStatus(translate("statusStateUnavailable"), "error");
       return;
     }
     render(response.state), (currentState?.status === "preparing" || currentState?.status === "ready" || currentState?.status === "creating") && schedulePolling();
@@ -116,38 +197,35 @@
   async function initialize() {
     try {
       let tab = (await chrome.tabs.query({ active: !0, currentWindow: !0 }))[0], suggested = labelFromTab(tab?.url, tab?.title);
-      suggested ? (labelInput.value = suggested, siteHint.textContent = `\u73FE\u5728\u306E\u30BF\u30D6: ${suggested}\uFF08\u5909\u66F4\u3067\u304D\u307E\u3059\uFF09`) : siteHint.textContent = "\u30B5\u30A4\u30C8\u540D\u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044\u3002";
+      suggested ? (labelInput.value = suggested, siteHint.textContent = translate("siteHintCurrent", suggested)) : siteHint.textContent = translate("siteHintEmpty");
     } catch {
-      siteHint.textContent = "\u30B5\u30A4\u30C8\u540D\u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044\u3002";
+      siteHint.textContent = translate("siteHintEmpty");
     }
     let response = await send({ type: "GET_STATE" });
-    response ? render(response.state) : setStatus("\u62E1\u5F35\u6A5F\u80FD\u306E\u72B6\u614B\u3092\u53D6\u5F97\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u30DD\u30C3\u30D7\u30A2\u30C3\u30D7\u3092\u958B\u304D\u76F4\u3057\u3066\u304F\u3060\u3055\u3044\u3002", "error");
+    response ? render(response.state) : setStatus(translate("statusStateUnavailable"), "error");
   }
   labelInput.addEventListener("input", () => {
-    labelTouched = !0, currentState && currentState.status === "idle" && (siteHint.textContent = "\u30B5\u30A4\u30C8\u540D\u306F\u81EA\u7531\u306B\u5909\u66F4\u3067\u304D\u307E\u3059\u3002");
+    labelTouched = !0, currentState && currentState.status === "idle" && (siteHint.textContent = translate("siteHintEditable"));
   });
   createButton.addEventListener("click", async () => {
     let label = sanitizeLabel(labelInput.value);
     if (!label) {
-      setStatus("\u30E9\u30D9\u30EB\u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044\u3002\u73FE\u5728\u306E\u30B5\u30A4\u30C8\u540D\u3092\u81EA\u52D5\u3067\u5165\u308C\u3066\u3044\u307E\u3059\u3002", "error"), labelInput.focus();
+      setStatus(translate("errorNoLabel"), "error"), labelInput.focus();
       return;
     }
-    labelTouched = !0, createButton.disabled = !0, labelInput.disabled = !0, createButton.textContent = "\u6E96\u5099\u4E2D\u2026", setStatus("iCloud+\u306E\u753B\u9762\u3092\u958B\u3044\u3066\u3044\u307E\u3059\u2026");
+    labelTouched = !0, createButton.disabled = !0, labelInput.disabled = !0, createButton.textContent = translate("buttonPreparing"), setStatus(translate("statusOpening"));
     let response = await send({ type: "START_JOB", label });
     if (!response) {
-      setStatus("\u4F5C\u6210\u3092\u958B\u59CB\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u30DD\u30C3\u30D7\u30A2\u30C3\u30D7\u3092\u958B\u304D\u76F4\u3057\u3066\u304F\u3060\u3055\u3044\u3002", "error"), createButton.disabled = !1, labelInput.disabled = !1;
+      setStatus(translate("errorStartFailed"), "error"), createButton.disabled = !1, labelInput.disabled = !1;
       return;
     }
-    render(response.state), response.ok || (response.reason === "review" ? (setStatus(
-      "\u524D\u56DE\u306E\u4F5C\u6210\u7D50\u679C\u3092\u78BA\u8A8D\u3057\u3066\u304B\u3089\u518D\u958B\u3057\u3066\u304F\u3060\u3055\u3044\u3002\u91CD\u8907\u4F5C\u6210\u3092\u9632\u3050\u305F\u3081\u3001\u81EA\u52D5\u3067\u306F\u518D\u8A66\u884C\u3057\u307E\u305B\u3093\u3002",
-      "error"
-    ), review.scrollIntoView({ block: "nearest" })) : response.reason === "busy" && setStatus("\u4F5C\u6210\u51E6\u7406\u4E2D\u3067\u3059\u3002\u5B8C\u4E86\u307E\u3067\u305D\u306E\u307E\u307E\u304A\u5F85\u3061\u304F\u3060\u3055\u3044\u3002", "warning"));
+    render(response.state), response.ok || (response.reason === "review" ? (setStatus(translate("errorReviewNeeded"), "error"), review.scrollIntoView({ block: "nearest" })) : response.reason === "busy" && setStatus(translate("errorBusy"), "warning"));
   });
   copyButton.addEventListener("click", async () => {
     let state = currentState, value = state?.address;
     if (!state || !value || !state.verified) return;
     let copied = await copyToClipboard(value);
-    !currentState || currentState.jobId !== state.jobId || currentState.address !== value || (copied ? (copyState.textContent = "\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F", setStatus("\u30A2\u30C9\u30EC\u30B9\u3092\u30AF\u30EA\u30C3\u30D7\u30DC\u30FC\u30C9\u306B\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F\u3002", "success"), await send({ type: "MARK_COPIED", jobId: state.jobId, address: value })) : setStatus("\u30B3\u30D4\u30FC\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u30A2\u30C9\u30EC\u30B9\u3092\u9078\u629E\u3057\u3066\u30B3\u30D4\u30FC\u3057\u3066\u304F\u3060\u3055\u3044\u3002", "error"));
+    !currentState || currentState.jobId !== state.jobId || currentState.address !== value || (copied ? (copyState.textContent = translate("copyStateCopiedNow"), setCopiedMarker(!0), setStatus(translate("statusCopied"), "success"), await send({ type: "MARK_COPIED", jobId: state.jobId, address: value })) : setStatus(translate("statusCopyFailed"), "error"));
   });
   openButton.addEventListener("click", () => {
     send({ type: "OPEN_ICLOUD" });

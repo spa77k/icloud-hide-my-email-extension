@@ -623,6 +623,28 @@ describe("アドレス作成（作成ダイアログの候補と一覧の確認�
     expect(result).toMatchObject({ kind: "failed", clicked: true, code: "RESULT_UNKNOWN" });
   });
 
+  it("中国語・韓国語のラベルも完全一致で照合する", async () => {
+    for (const [index, label] of ["购物网站", "쇼핑 사이트"].entries()) {
+      const candidate = `candidate-cjk-${index}@icloud.com`;
+      setBody(hmeManagementMarkup({ candidate, label }));
+      const dialog = document.getElementById("dialog")!;
+      const create = confirmButton();
+      create.addEventListener("click", () => {
+        dialog.remove();
+        appendCreatedItem(candidate, label);
+      });
+
+      const result = await createAddress(document, { timeoutMs: 300, pollMs: 5, label });
+
+      expect(result).toMatchObject({
+        kind: "success",
+        address: candidate,
+        copied: false,
+        verified: true,
+      });
+    }
+  });
+
   it("転送先本文に現在のラベルが含まれても、一覧項目として扱わない", async () => {
     setBody(
       hmeManagementMarkup({

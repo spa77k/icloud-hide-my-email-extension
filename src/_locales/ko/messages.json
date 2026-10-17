@@ -1,0 +1,180 @@
+{
+  "extName": {
+    "message": "iCloud+ 나의 이메일 가리기 생성 및 복사"
+  },
+  "extShortName": {
+    "message": "나의 이메일 가리기"
+  },
+  "extDescription": {
+    "message": "현재 사이트 이름을 레이블로 사용해 iCloud+ ‘나의 이메일 가리기’ 주소를 만들고 클립보드에 복사합니다."
+  },
+  "actionTitle": {
+    "message": "나의 이메일 가리기 주소 만들기"
+  },
+  "popupTitle": {
+    "message": "나의 이메일 가리기"
+  },
+  "heading": {
+    "message": "나의 이메일 가리기"
+  },
+  "subtitle": {
+    "message": "iCloud+ 주소를 만들어 복사"
+  },
+  "labelText": {
+    "message": "레이블"
+  },
+  "labelPlaceholder": {
+    "message": "예: example.com"
+  },
+  "siteHintEmpty": {
+    "message": "사이트 이름을 입력하세요."
+  },
+  "siteHintCurrent": {
+    "message": "현재 탭: $SITE$ (변경 가능)",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "siteHintThisJob": {
+    "message": "이번 생성의 레이블: $LABEL$",
+    "placeholders": {
+      "label": {
+        "content": "$1"
+      }
+    }
+  },
+  "siteHintEditable": {
+    "message": "사이트 이름은 자유롭게 변경할 수 있습니다."
+  },
+  "createAndCopy": {
+    "message": "만들고 복사"
+  },
+  "statusIdle": {
+    "message": "‘만들고 복사’를 누르면 iCloud+ 화면을 백그라운드에서 준비해 주소를 만듭니다. 현재 탭은 전환되지 않습니다. 처음에는 Apple 로그인이 필요할 수 있습니다."
+  },
+  "statusOpening": {
+    "message": "iCloud+ 화면을 여는 중…"
+  },
+  "statusPreparing": {
+    "message": "iCloud+ ‘나의 이메일 가리기’ 화면을 준비하는 중…"
+  },
+  "statusReady": {
+    "message": "레이블을 입력했습니다. 주소를 만드는 중…"
+  },
+  "statusCreating": {
+    "message": "주소를 만드는 중… 중복 생성을 막기 위해 잠시 기다려 주세요."
+  },
+  "statusSuccess": {
+    "message": "주소를 만들었습니다. ‘복사’를 누르세요."
+  },
+  "statusSuccessCopied": {
+    "message": "주소를 만들어 클립보드에 복사했습니다."
+  },
+  "statusUncertain": {
+    "message": "생성 결과를 확인하지 못했습니다. iCloud에서 확인하세요."
+  },
+  "statusError": {
+    "message": "주소를 만들지 못했습니다."
+  },
+  "errAuthRequired": {
+    "message": "Apple 로그인이 필요합니다. iCloud를 열고 로그인하세요."
+  },
+  "errSessionExpired": {
+    "message": "iCloud 세션이 만료되었습니다. iCloud를 열고 다시 로그인하세요."
+  },
+  "errNetwork": {
+    "message": "연결에 실패했습니다. 네트워크를 확인한 뒤 다시 시도하세요."
+  },
+  "errNoIcloudPlus": {
+    "message": "‘나의 이메일 가리기’를 열 수 없습니다. iCloud+ 구독 상태를 확인하세요."
+  },
+  "errUiNotFound": {
+    "message": "iCloud+ 화면을 찾지 못했습니다. 화면이 변경되었을 수 있습니다. iCloud에서 확인하세요."
+  },
+  "errCreateFailed": {
+    "message": "주소를 만들지 못했습니다. iCloud 화면에서 확인하세요."
+  },
+  "errTimeout": {
+    "message": "iCloud 응답을 기다리지 못했습니다. iCloud를 열고 상태를 확인하세요."
+  },
+  "errResultUnknown": {
+    "message": "생성 결과를 확인하지 못했습니다. iCloud에서 확인하세요."
+  },
+  "statusStateUnavailable": {
+    "message": "확장 프로그램 상태를 가져오지 못했습니다. 팝업을 다시 여세요."
+  },
+  "statusCopied": {
+    "message": "주소를 클립보드에 복사했습니다."
+  },
+  "statusCreatedManual": {
+    "message": "주소를 만들었습니다. ‘복사’를 누르세요."
+  },
+  "statusCopyFailed": {
+    "message": "복사하지 못했습니다. 주소를 선택해 직접 복사하세요."
+  },
+  "errorNoLabel": {
+    "message": "레이블을 입력하세요. 현재 사이트 이름이 자동으로 입력되어 있습니다."
+  },
+  "errorStartFailed": {
+    "message": "생성을 시작하지 못했습니다. 팝업을 다시 여세요."
+  },
+  "errorReviewNeeded": {
+    "message": "이전 생성 결과를 확인한 뒤 재개하세요. 중복 생성을 막기 위해 자동으로 다시 시도하지 않습니다."
+  },
+  "errorBusy": {
+    "message": "이미 생성 중입니다. 완료될 때까지 기다려 주세요."
+  },
+  "buttonProcessing": {
+    "message": "처리 중…"
+  },
+  "buttonPreparing": {
+    "message": "준비 중…"
+  },
+  "buttonSignIn": {
+    "message": "로그인 후 만들기"
+  },
+  "buttonAnother": {
+    "message": "하나 더 만들기"
+  },
+  "buttonReview": {
+    "message": "결과를 확인하세요"
+  },
+  "buttonRetry": {
+    "message": "다시 만들기"
+  },
+  "openIcloud": {
+    "message": "iCloud 열기"
+  },
+  "openIcloudCheck": {
+    "message": "iCloud에서 확인"
+  },
+  "resultHeading": {
+    "message": "만든 주소"
+  },
+  "copy": {
+    "message": "복사"
+  },
+  "copyStateCopied": {
+    "message": "복사됨"
+  },
+  "copyStateCopiedNow": {
+    "message": "복사됨"
+  },
+  "reviewLead": {
+    "message": "중복 생성을 막기 위해 자동으로 다시 시도하지 않습니다."
+  },
+  "reviewAria": {
+    "message": "이전 결과 확인"
+  },
+  "reviewCheck": {
+    "message": "iCloud에서 결과를 확인했습니다"
+  },
+  "reviewButton": {
+    "message": "확인 완료로 표시하고 재개"
+  },
+  "footer": {
+    "message": "비밀번호와 인증 코드는 다루지 않습니다. 만든 주소는 이 브라우저 세션에만 보관합니다."
+  }
+}

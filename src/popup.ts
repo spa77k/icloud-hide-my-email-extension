@@ -2,10 +2,48 @@ import { shouldAutoCopy } from "./lib/job";
 import { labelFromTab, sanitizeLabel } from "./lib/label";
 import type { JobState, PopupRequest, PopupResponse } from "./lib/protocol";
 
-const IDLE_MESSAGE =
-  "「作成してコピー」を押すと、iCloud+の画面を裏で準備して作成します。このタブは切り替わりません。初回はAppleのサインインが必要です。";
-
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
+
+function translate(key: string, substitutions?: string | string[]): string {
+  try {
+    return chrome.i18n.getMessage(key, substitutions) || key;
+  } catch {
+    return key;
+  }
+}
+
+function uiLanguageTag(): string {
+  let language = "en";
+  try {
+    language = chrome.i18n.getUILanguage().toLowerCase();
+  } catch {
+    // 取得できない場合は英語のままにする。
+  }
+  if (language.startsWith("ja")) return "ja";
+  if (language.startsWith("zh")) return "zh-CN";
+  if (language.startsWith("ko")) return "ko";
+  return "en";
+}
+
+function applyStaticTranslations(): void {
+  document.documentElement.lang = uiLanguageTag();
+  document.title = translate("popupTitle");
+
+  for (const element of document.querySelectorAll<HTMLElement>("[data-i18n]")) {
+    const key = element.dataset.i18n;
+    if (key) element.textContent = translate(key);
+  }
+  for (const element of document.querySelectorAll<HTMLElement>("[data-i18n-placeholder]")) {
+    const key = element.dataset.i18nPlaceholder;
+    if (key) element.setAttribute("placeholder", translate(key));
+  }
+  for (const element of document.querySelectorAll<HTMLElement>("[data-i18n-aria-label]")) {
+    const key = element.dataset.i18nAriaLabel;
+    if (key) element.setAttribute("aria-label", translate(key));
+  }
+}
+
+applyStaticTranslations();
 
 const labelInput = $<HTMLInputElement>("label");
 const siteHint = $<HTMLParagraphElement>("site-hint");
@@ -28,6 +66,63 @@ let autoCopiedJobId: string | null = null;
 function setStatus(text: string, tone: "info" | "success" | "warning" | "error" = "info"): void {
   status.textContent = text;
   status.dataset.tone = tone;
+}
+
+function errorText(code: JobState["errorCode"]): string {
+  switch (code) {
+    case "AUTH_REQUIRED":
+      return translate("errAuthRequired");
+    case "SESSION_EXPIRED":
+      return translate("errSessionExpired");
+    case "NETWORK":
+      return translate("errNetwork");
+    case "NO_ICLOUD_PLUS":
+      return translate("errNoIcloudPlus");
+    case "UI_NOT_FOUND":
+      return translate("errUiNotFound");
+    case "CREATE_FAILED":
+      return translate("errCreateFailed");
+    case "TIMEOUT":
+      return translate("errTimeout");
+    case "RESULT_UNKNOWN":
+      return translate("errResultUnknown");
+    default:
+      return translate("statusError");
+  }
+}
+
+function statusView(next: JobState): { text: string; tone: "info" | "success" | "warning" | "error" } {
+  switch (next.status) {
+    case "idle":
+      return { text: translate("statusIdle"), tone: "info" };
+    case "preparing":
+      return { text: translate("statusPreparing"), tone: "info" };
+    case "ready":
+      return { text: translate("statusReady"), tone: "info" };
+    case "creating":
+      return { text: translate("statusCreating"), tone: "warning" };
+    case "awaiting_login":
+      return {
+        text:
+          next.errorCode === "SESSION_EXPIRED"
+            ? translate("errSessionExpired")
+            : translate("errAuthRequired"),
+        tone: "warning",
+      };
+    case "success":
+      return {
+        text: next.copied ? translate("statusSuccessCopied") : translate("statusSuccess"),
+        tone: "success",
+      };
+    case "uncertain":
+      return { text: translate("statusUncertain"), tone: "error" };
+    case "error":
+      return { text: errorText(next.errorCode), tone: "error" };
+  }
+}
+
+function setCopiedMarker(copied: boolean): void {
+  copyState.dataset.copied = copied ? "true" : "false";
 }
 
 async function send(request: PopupRequest): Promise<PopupResponse | null> {
@@ -75,7 +170,7 @@ function render(next: JobState): void {
     next.status !== "success" &&
     next.status !== "error"
   ) {
-    siteHint.textContent = `この作成のラベル: ${next.label}`;
+    siteHint.textContent = translate("siteHintThisJob", next.label);
   }
 
   const working =
@@ -83,38 +178,29 @@ function render(next: JobState): void {
   createButton.disabled = working || next.status === "uncertain";
   labelInput.disabled = working;
 
+  const view = statusView(next);
+  setStatus(view.text, view.tone);
+
   switch (next.status) {
     case "idle":
-      createButton.textContent = "作成してコピー";
-      setStatus(IDLE_MESSAGE);
+      createButton.textContent = translate("createAndCopy");
       break;
     case "preparing":
-      createButton.textContent = "処理中…";
-      setStatus(next.message || "iCloudの画面を準備しています…");
-      break;
     case "ready":
-      createButton.textContent = "処理中…";
-      setStatus(next.message || "アドレスを作成しています…");
-      break;
     case "creating":
-      createButton.textContent = "処理中…";
-      setStatus(next.message || "アドレスを作成しています…", "warning");
+      createButton.textContent = translate("buttonProcessing");
       break;
     case "awaiting_login":
-      createButton.textContent = "サインイン後に作成";
-      setStatus(next.message, "warning");
+      createButton.textContent = translate("buttonSignIn");
       break;
     case "success":
-      createButton.textContent = "もう1つ作成";
-      setStatus(next.message, "success");
+      createButton.textContent = translate("buttonAnother");
       break;
     case "uncertain":
-      createButton.textContent = "結果を確認してください";
-      setStatus(next.message, "error");
+      createButton.textContent = translate("buttonReview");
       break;
     case "error":
-      createButton.textContent = "もう一度作成";
-      setStatus(next.message, "error");
+      createButton.textContent = translate("buttonRetry");
       break;
   }
 
@@ -124,10 +210,11 @@ function render(next: JobState): void {
   copyButton.disabled = !hasAddress;
   if (hasAddress) {
     address.textContent = next.address!;
-    copyState.textContent = next.copied ? "コピー済み" : "";
+    copyState.textContent = next.copied ? translate("copyStateCopied") : "";
   } else {
     copyState.textContent = "";
   }
+  setCopiedMarker(Boolean(hasAddress && next.copied));
 
   openButton.hidden = !(
     next.status === "awaiting_login" ||
@@ -135,7 +222,8 @@ function render(next: JobState): void {
     next.status === "uncertain" ||
     next.status === "success"
   );
-  openButton.textContent = next.status === "success" ? "iCloudで確認" : "iCloudを開く";
+  openButton.textContent =
+    next.status === "success" ? translate("openIcloudCheck") : translate("openIcloud");
 
   review.hidden = next.status !== "uncertain";
   if (next.status !== "uncertain") {
@@ -157,7 +245,8 @@ function render(next: JobState): void {
 async function maybeAutoCopy(next: JobState): Promise<void> {
   if (next.status !== "success" || !next.address) return;
   if (next.copied) {
-    copyState.textContent = "コピー済み";
+    copyState.textContent = translate("copyStateCopied");
+    setCopiedMarker(true);
     return;
   }
   // 新しい取得ロジックで作成を確認できた結果だけを自動コピーする。
@@ -172,18 +261,19 @@ async function maybeAutoCopy(next: JobState): Promise<void> {
   // コピー中に別のジョブ結果へ変わっていたら、古い結果で表示を書き換えない。
   if (!currentState || currentState.jobId !== jobId || currentState.address !== address) return;
   if (copied) {
-    copyState.textContent = "コピー済み";
-    setStatus("アドレスをクリップボードにコピーしました。", "success");
+    copyState.textContent = translate("copyStateCopied");
+    setCopiedMarker(true);
+    setStatus(translate("statusCopied"), "success");
     await send({ type: "MARK_COPIED", jobId, address });
   } else {
-    setStatus("アドレスを作成しました。「コピー」を押してください。", "warning");
+    setStatus(translate("statusCreatedManual"), "warning");
   }
 }
 
 async function refresh(): Promise<void> {
   const response = await send({ type: "GET_STATE" });
   if (!response) {
-    setStatus("拡張機能の状態を取得できませんでした。ポップアップを開き直してください。", "error");
+    setStatus(translate("statusStateUnavailable"), "error");
     return;
   }
   render(response.state);
@@ -226,45 +316,45 @@ async function initialize(): Promise<void> {
     const suggested = labelFromTab(tab?.url, tab?.title);
     if (suggested) {
       labelInput.value = suggested;
-      siteHint.textContent = `現在のタブ: ${suggested}（変更できます）`;
+      siteHint.textContent = translate("siteHintCurrent", suggested);
     } else {
-      siteHint.textContent = "サイト名を入力してください。";
+      siteHint.textContent = translate("siteHintEmpty");
     }
   } catch {
-    siteHint.textContent = "サイト名を入力してください。";
+    siteHint.textContent = translate("siteHintEmpty");
   }
 
   const response = await send({ type: "GET_STATE" });
   if (response) {
     render(response.state);
   } else {
-    setStatus("拡張機能の状態を取得できませんでした。ポップアップを開き直してください。", "error");
+    setStatus(translate("statusStateUnavailable"), "error");
   }
 }
 
 labelInput.addEventListener("input", () => {
   labelTouched = true;
   if (currentState && currentState.status === "idle") {
-    siteHint.textContent = "サイト名は自由に変更できます。";
+    siteHint.textContent = translate("siteHintEditable");
   }
 });
 
 createButton.addEventListener("click", async () => {
   const label = sanitizeLabel(labelInput.value);
   if (!label) {
-    setStatus("ラベルを入力してください。現在のサイト名を自動で入れています。", "error");
+    setStatus(translate("errorNoLabel"), "error");
     labelInput.focus();
     return;
   }
   labelTouched = true;
   createButton.disabled = true;
   labelInput.disabled = true;
-  createButton.textContent = "準備中…";
-  setStatus("iCloud+の画面を開いています…");
+  createButton.textContent = translate("buttonPreparing");
+  setStatus(translate("statusOpening"));
 
   const response = await send({ type: "START_JOB", label });
   if (!response) {
-    setStatus("作成を開始できませんでした。ポップアップを開き直してください。", "error");
+    setStatus(translate("errorStartFailed"), "error");
     createButton.disabled = false;
     labelInput.disabled = false;
     return;
@@ -272,13 +362,10 @@ createButton.addEventListener("click", async () => {
   render(response.state);
   if (!response.ok) {
     if (response.reason === "review") {
-      setStatus(
-        "前回の作成結果を確認してから再開してください。重複作成を防ぐため、自動では再試行しません。",
-        "error",
-      );
+      setStatus(translate("errorReviewNeeded"), "error");
       review.scrollIntoView({ block: "nearest" });
     } else if (response.reason === "busy") {
-      setStatus("作成処理中です。完了までそのままお待ちください。", "warning");
+      setStatus(translate("errorBusy"), "warning");
     }
   }
 });
@@ -291,11 +378,12 @@ copyButton.addEventListener("click", async () => {
   const copied = await copyToClipboard(value);
   if (!currentState || currentState.jobId !== state.jobId || currentState.address !== value) return;
   if (copied) {
-    copyState.textContent = "コピーしました";
-    setStatus("アドレスをクリップボードにコピーしました。", "success");
+    copyState.textContent = translate("copyStateCopiedNow");
+    setCopiedMarker(true);
+    setStatus(translate("statusCopied"), "success");
     await send({ type: "MARK_COPIED", jobId: state.jobId, address: value });
   } else {
-    setStatus("コピーできませんでした。アドレスを選択してコピーしてください。", "error");
+    setStatus(translate("statusCopyFailed"), "error");
   }
 });
 

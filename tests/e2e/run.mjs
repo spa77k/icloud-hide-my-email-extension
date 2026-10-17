@@ -245,7 +245,7 @@ try {
   assert(/@icloud\.com$/.test(firstAddress), `unexpected address: ${firstAddress}`);
   assert(firstState.address === firstAddress, "popup address and state address differ");
   assert(firstState.copied === true, "background job did not mark the popup copy");
-  await popup.waitForFunction(() => document.getElementById("copy-state")?.textContent === "コピー済み");
+  await popup.waitForFunction(() => document.getElementById("copy-state")?.dataset.copied === "true");
   const clipboardText = await readClipboard();
   assert(clipboardText === firstAddress, `clipboard ${clipboardText} did not match ${firstAddress}`);
   assert(

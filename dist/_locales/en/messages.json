@@ -1,0 +1,180 @@
+{
+  "extName": {
+    "message": "iCloud+ Hide My Email Creator & Copier"
+  },
+  "extShortName": {
+    "message": "Hide My Email"
+  },
+  "extDescription": {
+    "message": "Create an iCloud+ Hide My Email address labeled with the current site and copy it to the clipboard."
+  },
+  "actionTitle": {
+    "message": "Create a Hide My Email address"
+  },
+  "popupTitle": {
+    "message": "Hide My Email"
+  },
+  "heading": {
+    "message": "Hide My Email"
+  },
+  "subtitle": {
+    "message": "Create and copy an iCloud+ address"
+  },
+  "labelText": {
+    "message": "Label"
+  },
+  "labelPlaceholder": {
+    "message": "e.g. example.com"
+  },
+  "siteHintEmpty": {
+    "message": "Enter a site name."
+  },
+  "siteHintCurrent": {
+    "message": "Current tab: $SITE$ (editable)",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "siteHintThisJob": {
+    "message": "Label for this address: $LABEL$",
+    "placeholders": {
+      "label": {
+        "content": "$1"
+      }
+    }
+  },
+  "siteHintEditable": {
+    "message": "You can edit the site name."
+  },
+  "createAndCopy": {
+    "message": "Create and copy"
+  },
+  "statusIdle": {
+    "message": "Click “Create and copy” to prepare iCloud+ in the background and create an address. This tab stays in front. You may need to sign in to Apple the first time."
+  },
+  "statusOpening": {
+    "message": "Opening the iCloud+ page…"
+  },
+  "statusPreparing": {
+    "message": "Preparing the iCloud+ Hide My Email screen…"
+  },
+  "statusReady": {
+    "message": "Label entered. Creating the address…"
+  },
+  "statusCreating": {
+    "message": "Creating the address… Please wait to avoid creating duplicates."
+  },
+  "statusSuccess": {
+    "message": "Address created. Click “Copy”."
+  },
+  "statusSuccessCopied": {
+    "message": "Address created and copied to the clipboard."
+  },
+  "statusUncertain": {
+    "message": "Could not confirm the creation result. Check it in iCloud."
+  },
+  "statusError": {
+    "message": "The address could not be created."
+  },
+  "errAuthRequired": {
+    "message": "Sign in to Apple. Open iCloud and sign in."
+  },
+  "errSessionExpired": {
+    "message": "Your iCloud session expired. Open iCloud and sign in again."
+  },
+  "errNetwork": {
+    "message": "The connection failed. Check your network and try again."
+  },
+  "errNoIcloudPlus": {
+    "message": "Could not open Hide My Email. Check your iCloud+ subscription."
+  },
+  "errUiNotFound": {
+    "message": "Could not find the iCloud+ screen. The interface may have changed. Check in iCloud."
+  },
+  "errCreateFailed": {
+    "message": "Could not create the address. Check the iCloud screen."
+  },
+  "errTimeout": {
+    "message": "iCloud did not respond in time. Open iCloud and check the status."
+  },
+  "errResultUnknown": {
+    "message": "Could not confirm the creation result. Check it in iCloud."
+  },
+  "statusStateUnavailable": {
+    "message": "Could not read the extension state. Reopen the popup."
+  },
+  "statusCopied": {
+    "message": "Address copied to the clipboard."
+  },
+  "statusCreatedManual": {
+    "message": "Address created. Click “Copy”."
+  },
+  "statusCopyFailed": {
+    "message": "Could not copy. Select the address and copy it manually."
+  },
+  "errorNoLabel": {
+    "message": "Enter a label. The current site name is filled in automatically."
+  },
+  "errorStartFailed": {
+    "message": "Could not start. Reopen the popup."
+  },
+  "errorReviewNeeded": {
+    "message": "Check the previous result before resuming. Automatic retry is disabled to prevent duplicates."
+  },
+  "errorBusy": {
+    "message": "A creation is already in progress. Wait until it finishes."
+  },
+  "buttonProcessing": {
+    "message": "Working…"
+  },
+  "buttonPreparing": {
+    "message": "Preparing…"
+  },
+  "buttonSignIn": {
+    "message": "Create after signing in"
+  },
+  "buttonAnother": {
+    "message": "Create another"
+  },
+  "buttonReview": {
+    "message": "Check the result"
+  },
+  "buttonRetry": {
+    "message": "Try again"
+  },
+  "openIcloud": {
+    "message": "Open iCloud"
+  },
+  "openIcloudCheck": {
+    "message": "Check in iCloud"
+  },
+  "resultHeading": {
+    "message": "Created address"
+  },
+  "copy": {
+    "message": "Copy"
+  },
+  "copyStateCopied": {
+    "message": "Copied"
+  },
+  "copyStateCopiedNow": {
+    "message": "Copied"
+  },
+  "reviewLead": {
+    "message": "Automatic retry is disabled to prevent duplicate addresses."
+  },
+  "reviewAria": {
+    "message": "Review the previous result"
+  },
+  "reviewCheck": {
+    "message": "I checked the result in iCloud"
+  },
+  "reviewButton": {
+    "message": "Mark checked and resume"
+  },
+  "footer": {
+    "message": "Passwords and verification codes are never handled. The created address is kept only in this browser session."
+  }
+}

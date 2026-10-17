@@ -1,9 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "iCloud+ メールを非公開 作成コピー",
-  "short_name": "メールを非公開",
+  "name": "__MSG_extName__",
+  "short_name": "__MSG_extShortName__",
   "version": "0.1.0",
-  "description": "いま見ているサイト名をラベルに、iCloud+の「メールを非公開」アドレスを作成してクリップボードへコピーします。",
+  "description": "__MSG_extDescription__",
+  "default_locale": "en",
   "minimum_chrome_version": "120",
   "permissions": ["storage", "activeTab", "clipboardWrite"],
   "host_permissions": ["https://www.icloud.com/*"],
@@ -11,7 +12,7 @@
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "メールを非公開を作成",
+    "default_title": "__MSG_actionTitle__",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
