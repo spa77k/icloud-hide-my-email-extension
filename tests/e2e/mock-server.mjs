@@ -9,6 +9,9 @@ const styles = `
     h1 { font-size: 20px; }
     [role="button"], button { font: inherit; cursor: pointer; }
     #tile { width: 260px; padding: 16px; border: 1px solid #d9d9de; border-radius: 12px; }
+    .tile-button { display: block; width: 100%; height: 20px; }
+    .tile-grid { display: flex; gap: 12px; }
+    .tile-article { width: 260px; }
     #tile h2 { margin: 0 0 6px; font-size: 16px; }
     #tile p { margin: 0; color: #6e6e73; font-size: 12px; }
     iframe { width: 560px; height: 420px; margin-top: 18px; border: 1px solid #d9d9de; border-radius: 12px; }
@@ -30,9 +33,27 @@ function topPage(currentMode) {
   } else {
     content = `
       <h1>iCloud+</h1>
-      <div id="tile" role="button" tabindex="0">
-        <h2>メールを非公開</h2>
-        <p>メールアドレスを非公開にする</p>
+      <div class="tile-grid">
+        <article aria-label="メールを非公開" class="tile-article">
+          <div class="hide-my-email-tile tile small">
+            <button id="hme-tile-button" class="unstyled-button tile-button" aria-haspopup="dialog" aria-label="Show more options for メールを非公開"></button>
+            <div class="banner"><div class="header-content"><div class="text">
+              <div class="heading" role="heading" aria-level="2">メールを非公開</div>
+              <div class="heading offscreen-measure" aria-hidden="true">メールを非公開</div>
+              <div class="description" title="メールアドレスを非公開にする" role="presentation"><span class="description-content">メールアドレスを非公開にする</span></div>
+            </div></div></div>
+            <div class="content" aria-hidden="false"><div class="static-tile-content">
+              <div class="content-title-text">アドレス</div>
+              <div class="content-list-items"><ul><li>アクティブ7件</li><li>非アクティブ1件</li></ul></div>
+            </div></div>
+          </div>
+        </article>
+        <article aria-label="カスタムメールドメイン" class="tile-article">
+          <div class="custom-email-domain-tile tile small">
+            <button id="other-tile-button" class="unstyled-button tile-button" aria-haspopup="dialog" aria-label="Show more options for カスタムメールドメイン"></button>
+            <div class="heading" role="heading" aria-level="2">カスタムメールドメイン</div>
+          </div>
+        </article>
       </div>
       <iframe id="hme" title="メールを非公開"></iframe>
     `;
@@ -45,11 +66,20 @@ function topPage(currentMode) {
   ${content}
   <script>
     const mode = ${JSON.stringify(currentMode)};
-    const tile = document.getElementById("tile");
-    if (tile) {
-      tile.addEventListener("click", () => {
+    window.__tileClicks = 0;
+    window.__otherClicks = 0;
+    const tileButton = document.getElementById("hme-tile-button");
+    if (tileButton) {
+      tileButton.addEventListener("click", () => {
+        window.__tileClicks += 1;
         const frame = document.getElementById("hme");
         if (frame && !frame.src) frame.src = "/hme?mode=" + encodeURIComponent(mode);
+      });
+    }
+    const otherButton = document.getElementById("other-tile-button");
+    if (otherButton) {
+      otherButton.addEventListener("click", () => {
+        window.__otherClicks += 1;
       });
     }
   </script>
@@ -63,8 +93,9 @@ function hmePage(currentMode) {
 <head><meta charset="utf-8"><title>メールを非公開</title>${styles}</head>
 <body>
   <h1>メールを非公開</h1>
-  <p id="count">0件の有効なメールアドレス</p>
-  <button id="add" aria-label="メールアドレスを追加">＋</button>
+  <p id="count">7件の有効なメールアドレス</p>
+  <button id="add" aria-label="追加">＋</button>
+  <button id="close-hme" aria-label="閉じる">閉じる</button>
   <section id="dialog" role="dialog" aria-modal="true" hidden>
     <label>ラベル <input id="label" type="text" /></label>
     <button id="create">メールアドレスを作成</button>

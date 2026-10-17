@@ -72,6 +72,15 @@
     let tag = element.tagName.toLowerCase();
     return tag.startsWith("ui-") || tag.startsWith("sp-");
   }
+  function interactiveDescendants(container) {
+    let result = [];
+    isInteractive(container) && result.push(container);
+    let visit = (root) => {
+      for (let element of root.querySelectorAll("*"))
+        isInteractive(element) && result.push(element), element.shadowRoot && visit(element.shadowRoot);
+    };
+    return visit(container), result;
+  }
   function clickableAncestor(element) {
     let current = element;
     for (let depth = 0; current && depth < 8; depth += 1) {
@@ -226,9 +235,36 @@
       maxTextLength: 40
     }) ? "AUTH_REQUIRED" : null;
   }
+  function isCardContainer(element, titleText) {
+    let className = typeof element.className == "string" ? element.className : "";
+    if (/tile|card/i.test(className) || element.getAttribute("role") === "listitem") return !0;
+    let needle = normalizeText(titleText), aria = element.getAttribute("aria-label");
+    return !!(needle && aria && normalizeText(aria).includes(needle));
+  }
+  function findCardBoundary(titleElement, titleText = "", maxDepth = 8) {
+    let current = titleElement;
+    for (let depth = 0; current && depth < maxDepth; depth += 1) {
+      if (isCardContainer(current, titleText)) return current;
+      current = parentAcrossShadow(current);
+    }
+    return null;
+  }
+  function findCardControl(card, titleText = "") {
+    let candidates = interactiveDescendants(card).filter((element) => isVisible(element));
+    if (candidates.length === 0) return null;
+    let needle = normalizeText(titleText), preferred = candidates.find((element) => needle.length > 0 && elementText(element).includes(needle)) ?? candidates.find((element) => element.hasAttribute("aria-haspopup")) ?? candidates[0];
+    return { element: preferred, disabled: isDisabled(preferred) };
+  }
   function openHmeTile(doc) {
     let title = findByText(doc, ["\u30E1\u30FC\u30EB\u3092\u975E\u516C\u958B", /hide my email/i], { maxTextLength: 40 });
-    return title ? (clickElement(clickableAncestor(title)), !0) : !1;
+    if (!title) return !1;
+    let titleText = elementText(title), card = findCardBoundary(title, titleText);
+    if (card) {
+      let control = findCardControl(card, titleText);
+      return !control || control.disabled ? !1 : (clickElement(control.element), !0);
+    }
+    let ancestor = clickableAncestor(title);
+    return !isInteractive(ancestor) || isDisabled(ancestor) ? !1 : (clickElement(ancestor), !0);
   }
   function findCreateButton(doc) {
     return findByText(doc, ["\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9\u3092\u4F5C\u6210", /create email address/i], {

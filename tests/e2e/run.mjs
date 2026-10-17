@@ -139,8 +139,22 @@ try {
   const firstFrame = await currentHmeFrame();
   const firstCalls = await firstFrame.evaluate(() => window.__createCalls);
   assert(firstCalls === 1, `create button was pressed ${firstCalls} times`);
+  const icloudPage = context.pages().find((candidate) => candidate.url().startsWith(`${baseUrl}/icloudplus`));
+  assert(icloudPage, "iCloud mock tab was not found for tile checks");
+  const tileClicks = await icloudPage.evaluate(() => window.__tileClicks);
+  const otherTileClicks = await icloudPage.evaluate(() => window.__otherClicks);
+  assert(tileClicks === 1, `HME tile button was pressed ${tileClicks} times`);
+  assert(otherTileClicks === 0, `other tile button was pressed ${otherTileClicks} times`);
   await popup.screenshot({ path: "/tmp/hme-popup-success.png" });
-  results.push({ scenario: "作成成功", elapsedMs: firstElapsed, addressShown: true, createCalls: firstCalls, copied: firstState.copied });
+  results.push({
+    scenario: "作成成功",
+    elapsedMs: firstElapsed,
+    addressShown: true,
+    createCalls: firstCalls,
+    tileClicks,
+    otherTileClicks,
+    copied: firstState.copied,
+  });
 
   await setMode("loggedout");
   await clickCreate();

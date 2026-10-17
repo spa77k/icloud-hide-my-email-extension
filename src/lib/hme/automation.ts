@@ -7,7 +7,9 @@ import {
   elementText,
   findLabelInput,
   findByText,
+  interactiveDescendants,
   isDisabled,
+  isInteractive,
   isVisible,
   normalizeText,
   setInputValue,
@@ -123,10 +125,64 @@ export function detectAuth(doc: Document): "AUTH_REQUIRED" | "SESSION_EXPIRED" |
   return signIn ? "AUTH_REQUIRED" : null;
 }
 
+export interface CardControl {
+  element: HTMLElement;
+  disabled: boolean;
+}
+
+function isCardContainer(element: Element, titleText: string): boolean {
+  const className = typeof element.className === "string" ? element.className : "";
+  if (/tile|card/i.test(className)) return true;
+  if (element.getAttribute("role") === "listitem") return true;
+  const needle = normalizeText(titleText);
+  const aria = element.getAttribute("aria-label");
+  return Boolean(needle && aria && normalizeText(aria).includes(needle));
+}
+
+/**
+ * 見出しから、そのカードの境界になる最も近い先祖を探す。
+ * カードの外にある別カードや全体ナビの操作要素には広げない。
+ */
+export function findCardBoundary(titleElement: Element, titleText = "", maxDepth = 8): Element | null {
+  let current: Element | null = titleElement;
+  for (let depth = 0; current && depth < maxDepth; depth += 1) {
+    if (isCardContainer(current, titleText)) return current;
+    current = parentAcrossShadow(current);
+  }
+  return null;
+}
+
+/**
+ * カード境界の中で、専用のaria-labelボタンや操作要素を探す。
+ * 見つからなければ null を返し、カードの外へは探索を広げない。
+ */
+export function findCardControl(card: Element, titleText = ""): CardControl | null {
+  const candidates = interactiveDescendants(card).filter((element) => isVisible(element));
+  if (candidates.length === 0) return null;
+  const needle = normalizeText(titleText);
+  const preferred =
+    candidates.find((element) => needle.length > 0 && elementText(element).includes(needle)) ??
+    candidates.find((element) => element.hasAttribute("aria-haspopup")) ??
+    candidates[0]!;
+  return { element: preferred, disabled: isDisabled(preferred) };
+}
+
 export function openHmeTile(doc: Document): boolean {
   const title = findByText(doc, ["メールを非公開", /hide my email/i], { maxTextLength: 40 });
   if (!title) return false;
-  clickElement(clickableAncestor(title));
+
+  const titleText = elementText(title);
+  const card = findCardBoundary(title, titleText);
+  if (card) {
+    const control = findCardControl(card, titleText);
+    if (!control || control.disabled) return false;
+    clickElement(control.element);
+    return true;
+  }
+
+  const ancestor = clickableAncestor(title);
+  if (!isInteractive(ancestor) || isDisabled(ancestor)) return false;
+  clickElement(ancestor);
   return true;
 }
 

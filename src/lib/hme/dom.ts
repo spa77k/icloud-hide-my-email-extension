@@ -68,6 +68,19 @@ export function isInteractive(element: Element): boolean {
   return tag.startsWith("ui-") || tag.startsWith("sp-");
 }
 
+export function interactiveDescendants(container: Element): HTMLElement[] {
+  const result: HTMLElement[] = [];
+  if (isInteractive(container)) result.push(container as HTMLElement);
+  const visit = (root: Element | ShadowRoot): void => {
+    for (const element of root.querySelectorAll<HTMLElement>("*")) {
+      if (isInteractive(element)) result.push(element);
+      if (element.shadowRoot) visit(element.shadowRoot);
+    }
+  };
+  visit(container);
+  return result;
+}
+
 export function clickableAncestor(element: Element): Element {
   let current: Element | null = element;
   for (let depth = 0; current && depth < 8; depth += 1) {
