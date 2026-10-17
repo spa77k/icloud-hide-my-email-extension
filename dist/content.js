@@ -156,12 +156,12 @@
       let type = (element.type || "text").toLowerCase();
       if (type === "search" || type === "email" || type === "password" || type === "hidden" || type !== "text" && type !== "") continue;
       let hint = `${element.placeholder} ${element.getAttribute("aria-label") ?? ""}`;
-      /検索|search/i.test(hint) || candidates.push(element);
+      /検索|search|搜索|검색/i.test(hint) || candidates.push(element);
     }
     return candidates[0] ?? null;
   }
   function findLabelInput(doc) {
-    let label = findByText(doc, ["\u30E9\u30D9\u30EB", /^label$/i], { maxTextLength: 40 });
+    let label = findByText(doc, ["\u30E9\u30D9\u30EB", "\u6807\u7B7E", "\uB808\uC774\uBE14", /^label$/i], { maxTextLength: 40 });
     if (label) {
       let current = label;
       for (let depth = 0; current && depth < 5; depth += 1) {
@@ -215,12 +215,51 @@
       element !== root && !root.contains(element) || isVisible(element) && exactAddressOf(element) && matches.push(element);
     return matches.filter((element) => !matches.some((other) => other !== element && element.contains(other)));
   }
-  var ITEM_LABEL_SELECTOR = "h1, h2, h3, h4, h5, h6, [role='heading']", CREATE_HEADING_MATCHERS = [
+  var ITEM_LABEL_SELECTOR = "h1, h2, h3, h4, h5, h6, [role='heading']", HME_TITLE_MATCHERS = ["\u30E1\u30FC\u30EB\u3092\u975E\u516C\u958B", "\u9690\u85CF\u90AE\u4EF6\u5730\u5740", "\uB098\uC758 \uC774\uBA54\uC77C \uAC00\uB9AC\uAE30", /hide my email/i], CREATE_HEADING_MATCHERS = [
     "\u65B0\u3057\u3044\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9\u3092\u8FFD\u52A0",
+    "\u65B0\u3057\u3044\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9\u3092\u8A2D\u5B9A",
+    "\u8BBE\u7F6E\u65B0\u7684\u7535\u5B50\u90AE\u4EF6\u5730\u5740",
+    "\uC0C8 \uC774\uBA54\uC77C \uC8FC\uC18C \uC124\uC815",
     /add a new email address/i,
     /new email address/i,
     /set up a new email address/i
-  ];
+  ], ACTIVE_ADDRESS_MATCHERS = [
+    /件の有効なメールアドレス/,
+    /有効なメールアドレス/,
+    /active email address/i,
+    /个活跃电子邮件地址/,
+    /已激活的电子邮件地址/,
+    /활성 이메일 주소/
+  ], NEW_ADDRESS_BUTTON_MATCHERS = [
+    "\u65B0\u3057\u3044\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9\u3092\u8A2D\u5B9A",
+    "\u8BBE\u7F6E\u65B0\u7684\u7535\u5B50\u90AE\u4EF6\u5730\u5740",
+    "\uC0C8 \uC774\uBA54\uC77C \uC8FC\uC18C \uC124\uC815",
+    /set up a new email address/i
+  ], ADD_ADDRESS_MATCHERS = [
+    /メールアドレスを追加/,
+    /新しいメールアドレス/,
+    /add email address/i,
+    /new email address/i,
+    "\u6DFB\u52A0\u7535\u5B50\u90AE\u4EF6\u5730\u5740",
+    "\uC774\uBA54\uC77C \uC8FC\uC18C \uCD94\uAC00"
+  ], CREATE_BUTTON_MATCHERS = [
+    "\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9\u3092\u4F5C\u6210",
+    "\u521B\u5EFA\u7535\u5B50\u90AE\u4EF6\u5730\u5740",
+    "\uC774\uBA54\uC77C \uC8FC\uC18C \uC0DD\uC131",
+    /create email address/i
+  ], CREATE_BUTTON_EXACT_MATCHERS = [
+    "\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9\u3092\u4F5C\u6210",
+    "\u521B\u5EFA\u7535\u5B50\u90AE\u4EF6\u5730\u5740",
+    "\uC774\uBA54\uC77C \uC8FC\uC18C \uC0DD\uC131",
+    /^create email address$/i
+  ], FORWARD_HEADING_MATCHERS = [
+    "\u8EE2\u9001\u5148",
+    "\u8F6C\u53D1\u81F3",
+    "\uC804\uB2EC \uBC1B\uC744 \uC774\uBA54\uC77C \uC8FC\uC18C",
+    "\uC804\uB2EC",
+    /forwarding/i,
+    /forwarded to/i
+  ], BACK_MATCHERS = ["\u623B\u308B", "\u8FD4\u56DE", "\uB4A4\uB85C", /^back$/i], SIGN_IN_MATCHERS = ["\u30B5\u30A4\u30F3\u30A4\u30F3", "\u767B\u5F55", "\uB85C\uADF8\uC778", /sign in/i];
   function commonAncestor(elements) {
     if (elements.length === 0) return null;
     let current = elements[0];
@@ -237,7 +276,7 @@
         let label = element.closest("label");
         label && excluded.push(label);
       }
-    let transferHeading = findByText(doc, ["\u8EE2\u9001\u5148", /forwarding/i, /forwarded to/i], { maxTextLength: 40 });
+    let transferHeading = findByText(doc, FORWARD_HEADING_MATCHERS, { maxTextLength: 40 });
     if (transferHeading) {
       let section = transferHeading.closest("section, fieldset, [role='group'], [role='radiogroup'], ul");
       if (section)
@@ -336,17 +375,17 @@
     return null;
   }
   function hasHmeControls(doc) {
-    return findCreateButton(doc) || findByText(doc, ["\u65B0\u3057\u3044\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9\u3092\u8A2D\u5B9A", /set up a new email address/i], {
+    return findCreateButton(doc) || findByText(doc, NEW_ADDRESS_BUTTON_MATCHERS, {
       maxTextLength: 80
-    }) || findByText(doc, [/件の有効なメールアドレス/, /active email address/i, /有効なメールアドレス/], {
+    }) || findByText(doc, ACTIVE_ADDRESS_MATCHERS, {
       maxTextLength: 80
-    }) ? !0 : !!(findByText(doc, ["\u30E1\u30FC\u30EB\u3092\u975E\u516C\u958B", /hide my email/i], { maxTextLength: 40 }) && findLabelInput(doc));
+    }) ? !0 : !!(findByText(doc, HME_TITLE_MATCHERS, { maxTextLength: 40 }) && findLabelInput(doc));
   }
   function detectAuth(doc) {
     for (let element of allElements(doc))
       if (element instanceof HTMLInputElement && element.type === "password" && isVisible(element))
         return "SESSION_EXPIRED";
-    return findByText(doc, ["\u30B5\u30A4\u30F3\u30A4\u30F3", /sign in/i], {
+    return findByText(doc, SIGN_IN_MATCHERS, {
       interactiveOnly: !0,
       maxTextLength: 40
     }) ? "AUTH_REQUIRED" : null;
@@ -372,7 +411,7 @@
     return { element: preferred, disabled: isDisabled(preferred) };
   }
   function openHmeTile(doc) {
-    let title = findByText(doc, ["\u30E1\u30FC\u30EB\u3092\u975E\u516C\u958B", /hide my email/i], { maxTextLength: 40 });
+    let title = findByText(doc, HME_TITLE_MATCHERS, { maxTextLength: 40 });
     if (!title) return !1;
     let titleText = elementText(title), card = findCardBoundary(title, titleText);
     if (card) {
@@ -382,7 +421,6 @@
     let ancestor = clickableAncestor(title);
     return !isInteractive(ancestor) || isDisabled(ancestor) ? !1 : (clickElement(ancestor), !0);
   }
-  var CREATE_LABELS = ["\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9\u3092\u4F5C\u6210", /^create email address$/i];
   function isButtonLike(element) {
     let tag = element.tagName.toLowerCase();
     if (tag === "button") return !0;
@@ -397,7 +435,9 @@
       normalizeText(elementText(element)),
       normalizeText(element.innerText ?? element.textContent ?? "")
     ].some(
-      (text) => CREATE_LABELS.some((label) => typeof label == "string" ? text === normalizeText(label) : label.test(text))
+      (text) => CREATE_BUTTON_EXACT_MATCHERS.some(
+        (label) => typeof label == "string" ? text === normalizeText(label) : label.test(text)
+      )
     );
   }
   function findButtonElement(element, maxDepth = 4) {
@@ -409,7 +449,7 @@
     return null;
   }
   function findCreateButton(doc) {
-    let candidates = findAllByText(doc, ["\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9\u3092\u4F5C\u6210", /create email address/i], {
+    let candidates = findAllByText(doc, CREATE_BUTTON_MATCHERS, {
       maxTextLength: 50
     });
     for (let element of candidates) {
@@ -429,14 +469,14 @@
     return findCreateButton(doc) ? !0 : form ? !form.isConnected || !isVisible(form) ? !1 : !!findLabelInput(doc) : !!findLabelInput(doc);
   }
   function findOpenAddressButton(doc) {
-    let newAddress = findByText(doc, ["\u65B0\u3057\u3044\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9\u3092\u8A2D\u5B9A", /set up a new email address/i], {
+    let newAddress = findByText(doc, NEW_ADDRESS_BUTTON_MATCHERS, {
       interactiveOnly: !0,
       maxTextLength: 80
     });
     if (newAddress) return newAddress;
     let countHeading = findByText(
       doc,
-      [/件の有効なメールアドレス/, /active email address/i, /有効なメールアドレス/],
+      ACTIVE_ADDRESS_MATCHERS,
       { maxTextLength: 80 }
     );
     if (countHeading) {
@@ -448,7 +488,8 @@
         for (let control of controls) {
           if (!isVisible(control) || isDisabled(control)) continue;
           let text = elementText(control);
-          if (text === "+" || text === "\uFF0B" || /追加|add|new|作成|create/i.test(text)) return control;
+          if (text === "+" || text === "\uFF0B" || /追加|add|new|作成|create|添加|设置|생성|추가|설정/i.test(text))
+            return control;
         }
         for (let control of controls)
           if (!(!isVisible(control) || isDisabled(control)))
@@ -456,7 +497,7 @@
         current = parentAcrossShadow(current);
       }
     }
-    return findByText(doc, [/メールアドレスを追加/, /新しいメールアドレス/, /add email address/i, /new email address/i], {
+    return findByText(doc, ADD_ADDRESS_MATCHERS, {
       interactiveOnly: !0,
       maxTextLength: 80
     });
@@ -482,7 +523,7 @@
   }
   async function prepareInsideHme(doc, label, options) {
     if (findVisibleEmailDetailElement(doc)) {
-      let back = findByText(doc, ["\u623B\u308B", /^back$/i], { interactiveOnly: !0, maxTextLength: 20 });
+      let back = findByText(doc, BACK_MATCHERS, { interactiveOnly: !0, maxTextLength: 20 });
       back && (clickElement(back), await waitFor(
         () => !findVisibleEmailDetailElement(doc) && (findOpenAddressButton(doc) ?? findCreateButton(doc)) || null,
         options.timeoutMs,
@@ -507,7 +548,7 @@
     return auth ? { kind: "auth_required", code: auth } : options.isTopFrame && !options.tileAlreadyClicked && openHmeTile(doc) ? { kind: "opening" } : { kind: "none" };
   }
   function findCreationError(doc) {
-    let errorKeywords = /失敗|エラー|問題|できません|やり直|無効|上限|error|failed|couldn't|could not|unable|try again/i, successKeywords = /作成しました|created successfully|作成済み/i;
+    let errorKeywords = /失敗|エラー|問題|できません|やり直|無効|上限|error|failed|couldn't|could not|unable|try again|失败|错误|问题|无法|重试|无效|上限|실패|오류|문제|할 수 없|다시 시도|유효하지 않|한도/i, successKeywords = /作成しました|created successfully|作成済み|创建成功|已创建|已生成|성공적으로 생성|생성했습니다|생성되었습니다|만들었습니다/i;
     for (let element of allElements(doc)) {
       if (!isVisible(element)) continue;
       let role = element.getAttribute("role"), className = typeof element.className == "string" ? element.className : "";

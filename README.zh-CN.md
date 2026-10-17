@@ -1,8 +1,8 @@
-# iCloud+「隐藏我的电子邮件」创建与复制
+# iCloud+「隐藏邮件地址」创建与复制
 
 [日本語](README.md) | [English](README.en.md) | [한국어](README.ko.md)
 
-这是一款 Chrome 扩展：以当前网站名称作为标签，创建 iCloud+ 的「隐藏我的电子邮件」（Hide My Email）地址，并复制到剪贴板。支持 Manifest V3。
+这是一款 Chrome 扩展：以当前网站名称作为标签，创建 iCloud+ 的「隐藏邮件地址」（Hide My Email）地址，并复制到剪贴板。支持 Manifest V3。
 
 - 扩展内只需 **两次点击**（工具栏图标 →「创建并复制」）。创建成功后，弹窗会自动复制地址。
 - 正常创建时不会把 iCloud 标签页切到前台。扩展会复用已有的 iCloud 标签页；如果没有，则在后台打开一个非活动标签页。
@@ -17,17 +17,19 @@
 3. Apple Account 的双重认证
 4. 日常使用的 Chrome 配置可以登录 iCloud
 
-创建过程需要双重认证。即使已订阅 iCloud+，如果 iCloud.com 中没有显示「隐藏我的电子邮件」，也可能是受到了仅限网页访问等 Apple 限制。
+创建过程需要双重认证。即使已订阅 iCloud+，如果 iCloud.com 中没有显示「隐藏邮件地址」，也可能是受到了仅限网页访问等 Apple 限制。
 
 ## 安装
 
 本仓库已包含可直接加载的 `dist/`，无需构建。
 
+如果使用 [GitHub Releases](https://github.com/spa77k/icloud-hide-my-email-extension/releases) 中的分发包，请先解压 zip，并在第4步选择解压后的文件夹。
+
 1. 在 Chrome 中打开 `chrome://extensions`。
 2. 打开右上角的「开发者模式」。
 3. 点击「加载已解压的扩展程序」。
 4. 选择本项目中的 `dist` 文件夹。
-5. 在扩展菜单中固定「iCloud+ 隐藏我的电子邮件 创建与复制」。
+5. 在扩展菜单中固定「iCloud+ 隐藏邮件地址 创建与复制」。
 
 从源码重新构建：
 
@@ -63,13 +65,13 @@ iCloud 标签页会保留在后台。需要查看时，请使用弹窗中的「�
 本扩展不使用 Apple 的公开 API，而是操作 iCloud.com 的官方网页界面。
 
 1. 在后台准备一个 `icloud.com/icloudplus` 标签页（复用已有标签页，或打开非活动标签页）。
-2. 打开「隐藏我的电子邮件」。
+2. 打开「隐藏邮件地址」。
 3. 打开新建地址表单。
 4. 输入标签。
 5. 点击「创建电子邮件地址」。
-6. 将表单中显示的候选地址与确认后的结果（列表项的标签标题＋地址，或已创建地址详情页中的隐藏我的电子邮件字段）进行比对。只读取本次创建的地址，并在获得焦点的弹窗中复制。
+6. 将表单中显示的候选地址与确认后的结果（列表项的标签标题＋地址，或已创建地址详情页中的隐藏邮件地址字段）进行比对。只读取本次创建的地址，并在获得焦点的弹窗中复制。
 
-候选地址只从创建对话框中读取。转发地址、账户邮箱、已有列表、备注字段和隐藏地址都不会被当作候选或结果。确认后，只有保留的候选地址与结果一致，并且列表项的标签标题完全一致，或已创建地址详情页中显示隐藏我的电子邮件字段时，才会判定为成功。如果无法确定唯一候选、候选在确认时发生变化，或无法确认匹配结果，扩展会以「未确认」停止，不会复制。
+候选地址只从创建对话框中读取。转发地址、账户邮箱、已有列表、备注字段和隐藏地址都不会被当作候选或结果。确认后，只有保留的候选地址与结果一致，并且列表项的标签标题完全一致，或已创建地址详情页中显示隐藏邮件地址字段时，才会判定为成功。如果无法确定唯一候选、候选在确认时发生变化，或无法确认匹配结果，扩展会以「未确认」停止，不会复制。
 
 后台标签页可能无法使用 Clipboard API，因此复制在弹窗中完成。确认前显示的候选地址不会被复制，只有确认后的地址才会被复制。
 
@@ -84,14 +86,14 @@ iCloud 标签页会保留在后台。需要查看时，请使用弹窗中的「�
 - 简体中文
 - 韩语
 
-界面会根据 Chrome 的 UI 语言自动切换。iCloud.com 的页面操作已针对日语和英语的主要界面实现并进行了模拟测试。中文和韩语的 iCloud 界面尚未确认。标签匹配本身不依赖语言：扩展会将输入的标签与 iCloud 中的标题进行完全一致比较。
+界面会根据 Chrome 的 UI 语言自动切换。iCloud.com 的页面操作也已覆盖 Apple 官方帮助中确认的日语、英语、简体中文和韩语主要文案。尚未在真实登录的 iCloud+ 账户中验证地址创建（与界面语言无关），中文和韩语的 iCloud.com 实际界面也尚未在真实浏览器中确认。标签匹配本身不依赖语言：扩展会将输入的标签与 iCloud 中的标题进行完全一致比较。
 
 ## 限制与未确认事项
 
-- Apple 的公开文档中似乎没有可随意创建隐藏我的电子邮件地址的接口。本扩展通过网页操作创建地址。
+- Apple 的公开文档中似乎没有可随意创建隐藏邮件地址的接口。本扩展通过网页操作创建地址。
 - 需要 iCloud+ 订阅和双重认证，并使用同一个 Apple Account 登录 iCloud.com。
 - 支持的 iCloud 主机是 `www.icloud.com`。如果 Apple 将界面迁移到其他主机（例如 beta），扩展将无法工作。
-- iCloud 界面自动化覆盖日语和英语的主要文案。其他语言或文案变更可能无法工作。
+- iCloud 界面自动化覆盖 Apple 官方帮助中的日语、英语、简体中文和韩语主要文案。中文和韩语的实际 iCloud.com 界面尚未确认，文案变更也可能导致无法工作。
 - 标签长度、可用字符和可创建的地址数量由 Apple 控制。扩展不会自行判定上限。
 - 正常创建时 iCloud 标签页保持在后台。只有用户点击「打开 iCloud」时才会切到前台。
 - 自动复制只在弹窗中进行，不会在 iCloud 标签页（后台文档）中复制。如果关闭了弹窗，请在完成后重新打开以查看并复制结果。
@@ -108,7 +110,7 @@ iCloud 标签页会保留在后台。需要查看时，请使用弹窗中的「�
 | `storage` | 将任务状态和结果临时保存到 `chrome.storage.session` |
 | `activeTab` | 仅在打开弹窗时读取当前标签页的 URL 和标题，用作标签建议 |
 | `clipboardWrite` | 将创建的地址复制到剪贴板 |
-| `https://www.icloud.com/*` | 操作 iCloud.com 的「隐藏我的电子邮件」页面 |
+| `https://www.icloud.com/*` | 操作 iCloud.com 的「隐藏邮件地址」页面 |
 
 本扩展不请求 `cookies`、`tabs`、`webRequest`、`scripting` 或 `<all_urls>`，也不会禁用浏览器保护功能。
 
@@ -132,7 +134,7 @@ iCloud 标签页会保留在后台。需要查看时，请使用弹窗中的「�
 为防止重复创建，扩展不会自动重试。打开「在 iCloud 中确认」，检查是否多出了相同标签的地址。确认无误后，勾选复选框并点击「标记为已确认并继续」。
 
 **显示「未找到 iCloud+ 页面」**<br>
-请确认 iCloud.com 中是否显示「隐藏我的电子邮件」。如果没有显示，请检查 iCloud+ 订阅和仅限网页访问设置。
+请确认 iCloud.com 中是否显示「隐藏邮件地址」。如果没有显示，请检查 iCloud+ 订阅和仅限网页访问设置。
 
 **地址没有被复制**<br>
 请点击弹窗中的「复制」。不需要把 iCloud 标签页切到前台。如果关闭了弹窗，重新打开即可看到结果。
@@ -159,8 +161,8 @@ CHROME_PATH="/path/to/Google Chrome for Testing" npm run test:e2e
 
 ## 官方资料
 
-- [在 iCloud.com 上创建和编辑隐藏我的电子邮件地址](https://support.apple.com/zh-cn/guide/icloud/mm1a876f7aed/icloud)
-- [在所有设备上设置和使用隐藏我的电子邮件](https://support.apple.com/zh-cn/guide/icloud/mm9d9012c9e8/icloud)
-- [将隐藏我的电子邮件与「通过 Apple 登录」搭配使用](https://support.apple.com/zh-cn/105078)
+- [在 iCloud.com 上创建和编辑隐藏邮件地址](https://support.apple.com/zh-cn/guide/icloud/mm1a876f7aed/icloud)
+- [在所有设备上设置和使用隐藏邮件地址](https://support.apple.com/zh-cn/guide/icloud/mm9d9012c9e8/icloud)
+- [将隐藏邮件地址与「通过 Apple 登录」搭配使用](https://support.apple.com/zh-cn/105078)
 - [Manifest 文件格式（Chrome for Developers）](https://developer.chrome.com/docs/extensions/reference/manifest)
 - [Chrome 扩展国际化（Chrome for Developers）](https://developer.chrome.com/docs/extensions/reference/api/i18n)

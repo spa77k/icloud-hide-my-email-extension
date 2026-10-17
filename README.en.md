@@ -23,6 +23,8 @@ Two-factor authentication is required. If iCloud+ is active but Hide My Email do
 
 This repository includes a ready-to-load `dist/` directory. No build is required.
 
+To use the release zip from [GitHub Releases](https://github.com/spa77k/icloud-hide-my-email-extension/releases), extract it and select the extracted folder in step 4.
+
 1. Open `chrome://extensions` in Chrome.
 2. Turn on **Developer mode** in the top-right corner.
 3. Click **Load unpacked**.
@@ -84,14 +86,14 @@ The user-facing extension UI is available in:
 - Simplified Chinese
 - Korean
 
-The UI follows Chrome’s UI language automatically. The iCloud.com automation has been implemented and mock-tested for the main Japanese and English screens. The Chinese and Korean iCloud screens have not been verified. Label matching itself is language-independent: the entered label is compared with the iCloud heading using an exact match.
+The UI follows Chrome’s UI language automatically. The iCloud.com automation also covers the main Japanese, English, Simplified Chinese, and Korean wording confirmed in Apple’s official help. Full creation in a signed-in iCloud+ account has not been verified in any language, and the live Chinese and Korean iCloud.com screens have not been verified in a real browser. Label matching itself is language-independent: the entered label is compared with the iCloud heading using an exact match.
 
 ## Limitations and unverified items
 
 - Public Apple documentation does not appear to include an endpoint for creating arbitrary Hide My Email addresses. This extension creates them through the web UI.
 - An iCloud+ subscription and two-factor authentication are required. You must be signed in to iCloud.com with the same Apple Account.
 - The supported iCloud host is `www.icloud.com`. If Apple moves the UI to another host (for example, beta), the extension will not work.
-- The iCloud UI automation covers the main Japanese and English wording. Other languages and wording changes may not work.
+- The iCloud UI automation covers the main Japanese, English, Simplified Chinese, and Korean wording from Apple’s official help. The live Chinese and Korean iCloud.com screens have not been verified, and wording changes may still break the automation.
 - Label length, allowed characters, and the number of addresses you can create are controlled by Apple. The extension does not enforce its own limits.
 - Normal creation keeps the iCloud tab in the background. It comes to the front only when you click **Open iCloud**.
 - Automatic copying happens only in the popup. It does not copy from the iCloud tab (a background document). If the popup is closed, reopen it after completion to see and copy the result.

@@ -1,21 +1,21 @@
 {
   "extName": {
-    "message": "iCloud+ 隐藏我的电子邮件 创建与复制"
+    "message": "iCloud+ 隐藏邮件地址 创建与复制"
   },
   "extShortName": {
-    "message": "隐藏我的电子邮件"
+    "message": "隐藏邮件地址"
   },
   "extDescription": {
-    "message": "以当前网站名称作为标签，创建 iCloud+“隐藏我的电子邮件”地址并复制到剪贴板。"
+    "message": "以当前网站名称作为标签，创建 iCloud+“隐藏邮件地址”地址并复制到剪贴板。"
   },
   "actionTitle": {
-    "message": "创建隐藏我的电子邮件地址"
+    "message": "创建隐藏邮件地址"
   },
   "popupTitle": {
-    "message": "隐藏我的电子邮件"
+    "message": "隐藏邮件地址"
   },
   "heading": {
-    "message": "隐藏我的电子邮件"
+    "message": "隐藏邮件地址"
   },
   "subtitle": {
     "message": "创建并复制 iCloud+ 地址"
@@ -58,7 +58,7 @@
     "message": "正在打开 iCloud+ 页面…"
   },
   "statusPreparing": {
-    "message": "正在准备 iCloud+“隐藏我的电子邮件”页面…"
+    "message": "正在准备 iCloud+“隐藏邮件地址”页面…"
   },
   "statusReady": {
     "message": "已输入标签，正在创建地址…"
@@ -88,7 +88,7 @@
     "message": "网络连接失败。请检查连接后重试。"
   },
   "errNoIcloudPlus": {
-    "message": "无法打开“隐藏我的电子邮件”。请检查 iCloud+ 订阅状态。"
+    "message": "无法打开“隐藏邮件地址”。请检查 iCloud+ 订阅状态。"
   },
   "errUiNotFound": {
     "message": "未找到 iCloud+ 页面。界面可能已更改，请在 iCloud 中确认。"

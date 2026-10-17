@@ -96,12 +96,63 @@ function exactAddressElementsWithin(root: Element): HTMLElement[] {
 }
 
 const ITEM_LABEL_SELECTOR = "h1, h2, h3, h4, h5, h6, [role='heading']";
+
+// iCloud.comの表示文言（Apple公式ヘルプで確認した日本語・英語・簡体字中国語・韓国語）。
+// 画面操作の判定は、言語ごとの完全な文言と、言語に依存しないDOM構造を併用する。
+const HME_TITLE_MATCHERS = ["メールを非公開", "隐藏邮件地址", "나의 이메일 가리기", /hide my email/i];
 const CREATE_HEADING_MATCHERS = [
   "新しいメールアドレスを追加",
+  "新しいメールアドレスを設定",
+  "设置新的电子邮件地址",
+  "새 이메일 주소 설정",
   /add a new email address/i,
   /new email address/i,
   /set up a new email address/i,
 ];
+const ACTIVE_ADDRESS_MATCHERS = [
+  /件の有効なメールアドレス/,
+  /有効なメールアドレス/,
+  /active email address/i,
+  /个活跃电子邮件地址/,
+  /已激活的电子邮件地址/,
+  /활성 이메일 주소/,
+];
+const NEW_ADDRESS_BUTTON_MATCHERS = [
+  "新しいメールアドレスを設定",
+  "设置新的电子邮件地址",
+  "새 이메일 주소 설정",
+  /set up a new email address/i,
+];
+const ADD_ADDRESS_MATCHERS = [
+  /メールアドレスを追加/,
+  /新しいメールアドレス/,
+  /add email address/i,
+  /new email address/i,
+  "添加电子邮件地址",
+  "이메일 주소 추가",
+];
+const CREATE_BUTTON_MATCHERS = [
+  "メールアドレスを作成",
+  "创建电子邮件地址",
+  "이메일 주소 생성",
+  /create email address/i,
+];
+const CREATE_BUTTON_EXACT_MATCHERS = [
+  "メールアドレスを作成",
+  "创建电子邮件地址",
+  "이메일 주소 생성",
+  /^create email address$/i,
+];
+const FORWARD_HEADING_MATCHERS = [
+  "転送先",
+  "转发至",
+  "전달 받을 이메일 주소",
+  "전달",
+  /forwarding/i,
+  /forwarded to/i,
+];
+const BACK_MATCHERS = ["戻る", "返回", "뒤로", /^back$/i];
+const SIGN_IN_MATCHERS = ["サインイン", "登录", "로그인", /sign in/i];
 
 function commonAncestor(elements: Element[]): Element | null {
   if (elements.length === 0) return null;
@@ -127,7 +178,7 @@ function collectExcludedSubtrees(doc: Document): Element[] {
     }
   }
 
-  const transferHeading = findByText(doc, ["転送先", /forwarding/i, /forwarded to/i], { maxTextLength: 40 });
+  const transferHeading = findByText(doc, FORWARD_HEADING_MATCHERS, { maxTextLength: 40 });
   if (transferHeading) {
     // 見出し「転送先」を含むセクションを構造で除外する。radioが無く、転送先が
     // 一覧項目（li/article/button）の形でも、そのセクションごと除外する。
@@ -289,20 +340,20 @@ function findVisibleEmailDetailElement(doc: Document): HTMLElement | null {
 export function hasHmeControls(doc: Document): boolean {
   if (findCreateButton(doc)) return true;
   if (
-    findByText(doc, ["新しいメールアドレスを設定", /set up a new email address/i], {
+    findByText(doc, NEW_ADDRESS_BUTTON_MATCHERS, {
       maxTextLength: 80,
     })
   ) {
     return true;
   }
   if (
-    findByText(doc, [/件の有効なメールアドレス/, /active email address/i, /有効なメールアドレス/], {
+    findByText(doc, ACTIVE_ADDRESS_MATCHERS, {
       maxTextLength: 80,
     })
   ) {
     return true;
   }
-  const title = findByText(doc, ["メールを非公開", /hide my email/i], { maxTextLength: 40 });
+  const title = findByText(doc, HME_TITLE_MATCHERS, { maxTextLength: 40 });
   return Boolean(title && findLabelInput(doc));
 }
 
@@ -313,7 +364,7 @@ export function detectAuth(doc: Document): "AUTH_REQUIRED" | "SESSION_EXPIRED" |
     }
   }
 
-  const signIn = findByText(doc, ["サインイン", /sign in/i], {
+  const signIn = findByText(doc, SIGN_IN_MATCHERS, {
     interactiveOnly: true,
     maxTextLength: 40,
   });
@@ -363,7 +414,7 @@ export function findCardControl(card: Element, titleText = ""): CardControl | nu
 }
 
 export function openHmeTile(doc: Document): boolean {
-  const title = findByText(doc, ["メールを非公開", /hide my email/i], { maxTextLength: 40 });
+  const title = findByText(doc, HME_TITLE_MATCHERS, { maxTextLength: 40 });
   if (!title) return false;
 
   const titleText = elementText(title);
@@ -380,8 +431,6 @@ export function openHmeTile(doc: Document): boolean {
   clickElement(ancestor);
   return true;
 }
-
-const CREATE_LABELS = ["メールアドレスを作成", /^create email address$/i] as const;
 
 /**
  * 確定ボタンとして扱える要素か。
@@ -405,7 +454,9 @@ function matchesCreateLabel(element: Element): boolean {
     normalizeText((element as HTMLElement).innerText ?? element.textContent ?? ""),
   ];
   return texts.some((text) =>
-    CREATE_LABELS.some((label) => (typeof label === "string" ? text === normalizeText(label) : label.test(text))),
+    CREATE_BUTTON_EXACT_MATCHERS.some((label) =>
+      typeof label === "string" ? text === normalizeText(label) : label.test(text),
+    ),
   );
 }
 
@@ -429,7 +480,7 @@ function findButtonElement(element: Element, maxDepth = 4): HTMLElement | null {
  * 置き換わらないようにする。
  */
 export function findCreateButton(doc: Document): HTMLElement | null {
-  const candidates = findAllByText(doc, ["メールアドレスを作成", /create email address/i], {
+  const candidates = findAllByText(doc, CREATE_BUTTON_MATCHERS, {
     maxTextLength: 50,
   });
   for (const element of candidates) {
@@ -467,7 +518,7 @@ function isCreateFormOpen(doc: Document, form: Element | null): boolean {
 }
 
 function findOpenAddressButton(doc: Document): HTMLElement | null {
-  const newAddress = findByText(doc, ["新しいメールアドレスを設定", /set up a new email address/i], {
+  const newAddress = findByText(doc, NEW_ADDRESS_BUTTON_MATCHERS, {
     interactiveOnly: true,
     maxTextLength: 80,
   });
@@ -475,7 +526,7 @@ function findOpenAddressButton(doc: Document): HTMLElement | null {
 
   const countHeading = findByText(
     doc,
-    [/件の有効なメールアドレス/, /active email address/i, /有効なメールアドレス/],
+    ACTIVE_ADDRESS_MATCHERS,
     { maxTextLength: 80 },
   );
   if (countHeading) {
@@ -487,7 +538,9 @@ function findOpenAddressButton(doc: Document): HTMLElement | null {
       for (const control of controls) {
         if (!isVisible(control) || isDisabled(control)) continue;
         const text = elementText(control);
-        if (text === "+" || text === "＋" || /追加|add|new|作成|create/i.test(text)) return control;
+        if (text === "+" || text === "＋" || /追加|add|new|作成|create|添加|设置|생성|추가|설정/i.test(text)) {
+          return control;
+        }
       }
       for (const control of controls) {
         if (!isVisible(control) || isDisabled(control)) continue;
@@ -497,7 +550,7 @@ function findOpenAddressButton(doc: Document): HTMLElement | null {
     }
   }
 
-  return findByText(doc, [/メールアドレスを追加/, /新しいメールアドレス/, /add email address/i, /new email address/i], {
+  return findByText(doc, ADD_ADDRESS_MATCHERS, {
     interactiveOnly: true,
     maxTextLength: 80,
   });
@@ -537,7 +590,7 @@ async function prepareInsideHme(
   // 成否にかかわらずこの呼び出しの終了で記録は残さない（次の新ジョブでも戻れる）。
   const detailElement = findVisibleEmailDetailElement(doc);
   if (detailElement) {
-    const back = findByText(doc, ["戻る", /^back$/i], { interactiveOnly: true, maxTextLength: 20 });
+    const back = findByText(doc, BACK_MATCHERS, { interactiveOnly: true, maxTextLength: 20 });
     if (back) {
       clickElement(back);
       await waitFor(
@@ -589,8 +642,9 @@ export async function prepareAddress(
 
 function findCreationError(doc: Document): string | null {
   const errorKeywords =
-    /失敗|エラー|問題|できません|やり直|無効|上限|error|failed|couldn't|could not|unable|try again/i;
-  const successKeywords = /作成しました|created successfully|作成済み/i;
+    /失敗|エラー|問題|できません|やり直|無効|上限|error|failed|couldn't|could not|unable|try again|失败|错误|问题|无法|重试|无效|上限|실패|오류|문제|할 수 없|다시 시도|유효하지 않|한도/i;
+  const successKeywords =
+    /作成しました|created successfully|作成済み|创建成功|已创建|已生成|성공적으로 생성|생성했습니다|생성되었습니다|만들었습니다/i;
 
   for (const element of allElements(doc)) {
     if (!isVisible(element)) continue;

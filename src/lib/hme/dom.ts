@@ -201,14 +201,14 @@ export function findTextInput(doc: Document): HTMLInputElement | HTMLTextAreaEle
     if (type === "search" || type === "email" || type === "password" || type === "hidden") continue;
     if (type !== "text" && type !== "") continue;
     const hint = `${element.placeholder} ${element.getAttribute("aria-label") ?? ""}`;
-    if (/検索|search/i.test(hint)) continue;
+    if (/検索|search|搜索|검색/i.test(hint)) continue;
     candidates.push(element);
   }
   return candidates[0] ?? null;
 }
 
 export function findLabelInput(doc: Document): HTMLInputElement | HTMLTextAreaElement | null {
-  const label = findByText(doc, ["ラベル", /^label$/i], { maxTextLength: 40 });
+  const label = findByText(doc, ["ラベル", "标签", "레이블", /^label$/i], { maxTextLength: 40 });
   if (label) {
     let current: Element | null = label;
     for (let depth = 0; current && depth < 5; depth += 1) {
