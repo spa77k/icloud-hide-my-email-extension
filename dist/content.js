@@ -176,7 +176,7 @@
   }
 
   // src/lib/hme/automation.ts
-  var ADDRESS_PATTERN = /[a-z0-9._%+-]+\s*@\s*(?:icloud\.com|privaterelay\.appleid\.com)/gi, EXCLUDED_LOCAL_PARTS = /* @__PURE__ */ new Set(["support", "privacy", "apple", "noreply", "no-reply"]), AutomationError = class extends Error {
+  var EXACT_ADDRESS_PATTERN = /^[a-z0-9._%+-]+@(?:icloud\.com|privaterelay\.appleid\.com)$/i, EXCLUDED_LOCAL_PARTS = /* @__PURE__ */ new Set(["support", "privacy", "apple", "noreply", "no-reply"]), AutomationError = class extends Error {
     constructor(code, message = errorMessage(code)) {
       super(message);
       this.code = code;
@@ -202,21 +202,119 @@
     let root = element.getRootNode();
     return root instanceof ShadowRoot ? root.host : null;
   }
-  function extractEmails(doc, scope) {
-    let found = /* @__PURE__ */ new Set(), textRoot = scope ?? doc.body, text = textRoot?.innerText ?? textRoot?.textContent ?? "";
-    for (let match of text.matchAll(ADDRESS_PATTERN))
-      found.add(match[0].replace(/\s+/g, "").toLowerCase());
+  function exactAddressOf(element) {
+    if (element.matches("input, textarea, select, option, script, style")) return null;
+    let text = normalizeText(element.innerText ?? element.textContent ?? "");
+    if (!EXACT_ADDRESS_PATTERN.test(text)) return null;
+    let local = text.split("@")[0]?.toLowerCase() ?? "";
+    return EXCLUDED_LOCAL_PARTS.has(local) ? null : text.toLowerCase();
+  }
+  function exactAddressElementsWithin(root) {
+    let doc = root.ownerDocument ?? document, matches = [];
     for (let element of allElements(doc))
-      if (!(scope && !scope.contains(element)) && isVisible(element)) {
-        if (element instanceof HTMLAnchorElement && element.href.startsWith("mailto:")) {
-          let address = decodeURIComponent(element.href.slice(7)).split("?")[0] ?? "";
-          ADDRESS_PATTERN.test(address) && found.add(address.trim().toLowerCase()), ADDRESS_PATTERN.lastIndex = 0;
-        }
-        (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) && (ADDRESS_PATTERN.test(element.value) && found.add(element.value.trim().toLowerCase()), ADDRESS_PATTERN.lastIndex = 0);
+      element !== root && !root.contains(element) || isVisible(element) && exactAddressOf(element) && matches.push(element);
+    return matches.filter((element) => !matches.some((other) => other !== element && element.contains(other)));
+  }
+  var ITEM_LABEL_SELECTOR = "h1, h2, h3, h4, h5, h6, [role='heading']", CREATE_HEADING_MATCHERS = [
+    "\u65B0\u3057\u3044\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9\u3092\u8FFD\u52A0",
+    /add a new email address/i,
+    /new email address/i,
+    /set up a new email address/i
+  ];
+  function commonAncestor(elements) {
+    if (elements.length === 0) return null;
+    let current = elements[0];
+    for (; current; ) {
+      if (elements.every((element) => current.contains(element))) return current;
+      current = parentAcrossShadow(current);
+    }
+    return null;
+  }
+  function collectExcludedSubtrees(doc) {
+    let excluded = [];
+    for (let element of allElements(doc))
+      if (element.matches("[role='radiogroup'], fieldset") && excluded.push(element), element instanceof HTMLInputElement && element.type === "radio") {
+        let label = element.closest("label");
+        label && excluded.push(label);
       }
-    return [...found].filter((address) => {
-      let local = address.split("@")[0] ?? "";
-      return !EXCLUDED_LOCAL_PARTS.has(local);
+    let transferHeading = findByText(doc, ["\u8EE2\u9001\u5148", /forwarding/i, /forwarded to/i], { maxTextLength: 40 });
+    if (transferHeading) {
+      let section = transferHeading.closest("section, fieldset, [role='group'], [role='radiogroup'], ul");
+      if (section)
+        excluded.push(section);
+      else {
+        let current = transferHeading;
+        for (let depth = 0; current && depth < 8; depth += 1) {
+          if (current.querySelector("input[type='radio']")) {
+            excluded.push(current);
+            break;
+          }
+          current = parentAcrossShadow(current);
+        }
+      }
+    }
+    return excluded;
+  }
+  function isWithinExcluded(element, excluded) {
+    return excluded.some((root) => root === element || root.contains(element));
+  }
+  function findCreateHeading(doc) {
+    return findByText(doc, CREATE_HEADING_MATCHERS, { maxTextLength: 80 });
+  }
+  function findCreateScreen(doc, button) {
+    let labelInput = findHmeLabelInput(doc), heading = findCreateHeading(doc), anchors = [labelInput, heading, button].filter((element) => !!element);
+    if (anchors.length < 2) return null;
+    let screen = commonAncestor(anchors);
+    return !screen || screen === doc.body || screen === doc.documentElement ? null : screen;
+  }
+  function candidateAddressFromScreen(screen, excluded) {
+    let addresses = /* @__PURE__ */ new Set();
+    for (let element of exactAddressElementsWithin(screen)) {
+      if (isWithinExcluded(element, excluded)) continue;
+      let address = exactAddressOf(element);
+      address && addresses.add(address);
+    }
+    return addresses.size === 1 ? [...addresses][0] : null;
+  }
+  function itemLabelOf(element) {
+    for (let heading of element.querySelectorAll(ITEM_LABEL_SELECTOR)) {
+      if (!isVisible(heading)) continue;
+      let text = normalizeText(heading.innerText ?? heading.textContent ?? "");
+      if (text && !EXACT_ADDRESS_PATTERN.test(text)) return text;
+    }
+    for (let candidate of element.querySelectorAll("[class*='heading'], [class*='label']")) {
+      if (!isVisible(candidate)) continue;
+      let text = normalizeText(candidate.innerText ?? candidate.textContent ?? "");
+      if (text && !EXACT_ADDRESS_PATTERN.test(text)) return text;
+    }
+    return null;
+  }
+  function labelsMatch(itemLabel, expected) {
+    let normalizedExpected = normalizeText(expected);
+    return normalizedExpected.length > 0 && normalizeText(itemLabel) === normalizedExpected;
+  }
+  function findAddressItems(doc) {
+    let excluded = collectExcludedSubtrees(doc), items = [];
+    for (let element of allElements(doc)) {
+      if (!element.matches("button, li, article, [role='listitem']") || !isVisible(element) || isWithinExcluded(element, excluded) || element.closest("input, textarea, select")) continue;
+      let label = itemLabelOf(element);
+      if (!label) continue;
+      let addresses = /* @__PURE__ */ new Set();
+      for (let child of exactAddressElementsWithin(element)) {
+        if (isWithinExcluded(child, excluded)) continue;
+        let address = exactAddressOf(child);
+        address && addresses.add(address);
+      }
+      if (addresses.size !== 1) continue;
+      let text = normalizeText(element.innerText ?? element.textContent ?? "");
+      items.push({ element, address: [...addresses][0], label, text });
+    }
+    let innermost = items.filter(
+      (item) => !items.some((other) => other !== item && item.element.contains(other.element))
+    ), seen = /* @__PURE__ */ new Set();
+    return innermost.filter((item) => {
+      let key = `${item.address}|${item.label}`;
+      return seen.has(key) ? !1 : (seen.add(key), !0);
     });
   }
   function hasHmeControls(doc) {
@@ -303,15 +401,11 @@
     }
     return null;
   }
-  function findFormContainer(button) {
-    let current = button, withInput = null;
-    for (let depth = 0; current && depth < 12; depth += 1) {
-      let role = current.getAttribute("role"), tag = current.tagName.toLowerCase(), className = typeof current.className == "string" ? current.className : "";
-      if (role === "dialog" || current.getAttribute("aria-modal") === "true" || tag === "dialog" || tag === "form" || /dialog|sheet|modal/i.test(className))
-        return current;
-      !withInput && current.querySelector("input:not([type='hidden']), textarea") && (withInput = current), current = parentAcrossShadow(current);
-    }
-    return withInput;
+  function findHmeLabelInput(doc) {
+    for (let element of allElements(doc))
+      if (element instanceof HTMLInputElement && element.name === "hme-label" && isVisible(element) && !element.disabled)
+        return element;
+    return findLabelInput(doc);
   }
   function isCreateFormOpen(doc, form) {
     return findCreateButton(doc) ? !0 : form ? !form.isConnected || !isVisible(form) ? !1 : !!findLabelInput(doc) : !!findLabelInput(doc);
@@ -407,8 +501,8 @@
     if (isDisabled(button)) {
       let enabled = await waitFor(
         () => {
-          let candidate2 = findCreateButton(doc);
-          return candidate2 && !isDisabled(candidate2) ? candidate2 : null;
+          let candidate = findCreateButton(doc);
+          return candidate && !isDisabled(candidate) ? candidate : null;
         },
         1500,
         100
@@ -417,7 +511,10 @@
         return { kind: "failed", clicked: !1, code: "CREATE_FAILED", message: errorMessage("CREATE_FAILED") };
       clickableButton = enabled;
     }
-    let before = new Set(extractEmails(doc)), form = findFormContainer(clickableButton), candidate = form ? extractEmails(doc, form) : [];
+    let excluded = collectExcludedSubtrees(doc), form = findCreateScreen(doc, clickableButton), candidateAddress = form ? candidateAddressFromScreen(form, excluded) : null;
+    if (!candidateAddress)
+      return { kind: "failed", clicked: !1, code: "RESULT_UNKNOWN", message: errorMessage("RESULT_UNKNOWN") };
+    let normalizedLabel = normalizeText(options.label ?? findHmeLabelInput(doc)?.value ?? ""), beforeAddresses = new Set(findAddressItems(doc).map((item) => item.address));
     options.onClick?.();
     try {
       clickElement(clickableButton);
@@ -434,12 +531,18 @@
           message: errorMessage("CREATE_FAILED")
         };
       if (!isCreateFormOpen(doc, form)) {
-        let current = extractEmails(doc), confirmed = candidate.find((address) => current.includes(address));
-        if (confirmed)
-          return { kind: "success", address: confirmed, copied: !1 };
-        let fresh = current.filter((address) => !before.has(address));
-        if (fresh.length > 0)
-          return { kind: "success", address: fresh[0], copied: !1 };
+        let items = findAddressItems(doc), candidateMatches = items.filter(
+          (item) => item.address === candidateAddress && labelsMatch(item.label, normalizedLabel)
+        );
+        if (candidateMatches.length === 1 && !beforeAddresses.has(candidateMatches[0].address))
+          return { kind: "success", address: candidateMatches[0].address, copied: !1, verified: !0 };
+        if (candidateMatches.length === 0 && normalizedLabel.length > 0) {
+          let newLabelItems = items.filter(
+            (item) => labelsMatch(item.label, normalizedLabel) && !beforeAddresses.has(item.address)
+          );
+          if (newLabelItems.length === 1)
+            return { kind: "success", address: newLabelItems[0].address, copied: !1, verified: !0 };
+        }
       }
       await sleep(pollMs);
     }
@@ -509,9 +612,10 @@
       let outcome = await createAddress(document, {
         timeoutMs: 35e3,
         pollMs: 250,
+        label: command.label,
         onClick: () => emit("create_clicked")
       });
-      return outcome.kind === "success" ? (emit("created", { address: outcome.address, copied: outcome.copied }), { ok: !0, status: "accepted" }) : (emit("create_failed", {
+      return outcome.kind === "success" ? (emit("created", { address: outcome.address, copied: outcome.copied, verified: outcome.verified }), { ok: !0, status: "accepted" }) : (emit("create_failed", {
         clicked: outcome.clicked,
         code: outcome.code,
         message: outcome.message

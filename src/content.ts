@@ -24,7 +24,7 @@ function resetFor(jobId: string): void {
 
 function emit(
   phase: ContentEventPhase,
-  extra: Partial<Pick<ContentEventMessage, "code" | "message" | "address" | "copied" | "clicked">> = {},
+  extra: Partial<Pick<ContentEventMessage, "code" | "message" | "address" | "copied" | "clicked" | "verified">> = {},
 ): void {
   if (!currentJobId) return;
   const message: ContentEventMessage = {
@@ -106,11 +106,12 @@ async function handleCreate(command: Extract<ContentCommand, { type: "CREATE" }>
     const outcome = await createAddress(document, {
       timeoutMs: 35000,
       pollMs: 250,
+      label: command.label,
       onClick: () => emit("create_clicked"),
     });
 
     if (outcome.kind === "success") {
-      emit("created", { address: outcome.address, copied: outcome.copied });
+      emit("created", { address: outcome.address, copied: outcome.copied, verified: outcome.verified });
       return { ok: true, status: "accepted" };
     }
 

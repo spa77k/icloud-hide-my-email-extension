@@ -72,19 +72,27 @@ describe("コンテンツ側の重複防止", () => {
     button.addEventListener("click", () => {
       createClick();
       const address = candidate.textContent ?? "";
+      const label = (document.getElementById("label") as HTMLInputElement).value;
       dialog.remove();
-      const item = document.createElement("li");
-      item.textContent = address;
-      document.getElementById("addresses")!.appendChild(item);
+      const li = document.createElement("li");
+      const item = document.createElement("button");
+      item.type = "button";
+      const heading = document.createElement("h2");
+      heading.textContent = label;
+      const value = document.createElement("span");
+      value.textContent = address;
+      item.append(heading, value);
+      li.appendChild(item);
+      document.getElementById("addresses")!.appendChild(li);
     });
 
     const prepared = await send({ type: "PREPARE", jobId: "job-1", label: "example.com" });
     expect(prepared).toMatchObject({ ok: true, status: "ready" });
 
-    const first = await send({ type: "CREATE", jobId: "job-1" });
+    const first = await send({ type: "CREATE", jobId: "job-1", label: "example.com" });
     expect(first).toMatchObject({ ok: true, status: "accepted" });
 
-    const second = await send({ type: "CREATE", jobId: "job-1" });
+    const second = await send({ type: "CREATE", jobId: "job-1", label: "example.com" });
     expect(second).toMatchObject({ ok: false, status: "failed" });
     expect(createClick).toHaveBeenCalledTimes(1);
 
@@ -94,6 +102,7 @@ describe("コンテンツ側の重複防止", () => {
         jobId: "job-1",
         phase: "created",
         address: "dedupe-check@icloud.com",
+        verified: true,
       }),
     );
   });

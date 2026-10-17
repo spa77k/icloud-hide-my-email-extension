@@ -10,6 +10,7 @@
       message: "",
       address: null,
       copied: !1,
+      verified: !1,
       createAttempted: !1,
       tabId: null,
       frameId: null,
@@ -66,6 +67,7 @@
       message: STATUS_MESSAGES.preparing,
       address: null,
       copied: !1,
+      verified: !1,
       createAttempted: !1,
       tabId: null,
       frameId: null,
@@ -85,6 +87,7 @@
       message: typeof value.message == "string" ? value.message : "",
       address: typeof value.address == "string" && isEmail(value.address) ? value.address : null,
       copied: value.copied === !0,
+      verified: value.verified === !0,
       createAttempted: value.createAttempted === !0,
       tabId: typeof value.tabId == "number" ? value.tabId : null,
       frameId: typeof value.frameId == "number" ? value.frameId : null,
@@ -112,6 +115,14 @@
       createAttempted: !1,
       frameId: null,
       errorCode: "TIMEOUT",
+      updatedAt: now
+    } : restored.status === "success" && !restored.verified ? {
+      ...restored,
+      status: "uncertain",
+      address: null,
+      copied: !1,
+      message: STATUS_MESSAGES.uncertain,
+      errorCode: "RESULT_UNKNOWN",
       updatedAt: now
     } : restored.status === "success" && !restored.address ? {
       ...restored,
@@ -163,18 +174,21 @@
       case "created": {
         if (!state2.createAttempted) return state2;
         let address = typeof event.address == "string" && isEmail(event.address) ? event.address : null;
-        return address ? {
+        return !address || event.verified !== !0 ? {
+          ...base,
+          status: "uncertain",
+          address: null,
+          copied: !1,
+          message: STATUS_MESSAGES.uncertain,
+          errorCode: "RESULT_UNKNOWN"
+        } : {
           ...base,
           status: "success",
           address,
           copied: event.copied === !0,
+          verified: !0,
           message: event.copied ? "\u30A2\u30C9\u30EC\u30B9\u3092\u4F5C\u6210\u3057\u3001\u30AF\u30EA\u30C3\u30D7\u30DC\u30FC\u30C9\u306B\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F\u3002" : "\u30A2\u30C9\u30EC\u30B9\u3092\u4F5C\u6210\u3057\u307E\u3057\u305F\u3002\u300C\u30B3\u30D4\u30FC\u300D\u3092\u62BC\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
           errorCode: null
-        } : {
-          ...base,
-          status: "uncertain",
-          message: STATUS_MESSAGES.uncertain,
-          errorCode: "RESULT_UNKNOWN"
         };
       }
       case "create_failed":
@@ -373,7 +387,7 @@
       message: STATUS_MESSAGES.creating,
       errorCode: null
     });
-    let response = await sendToTab(tabId, { type: "CREATE", jobId }, frameId, CREATE_WAIT_MS);
+    let response = await sendToTab(tabId, { type: "CREATE", jobId, label: state.label }, frameId, CREATE_WAIT_MS);
     if (!response) {
       state.status !== "success" && commit(markUncertain(state));
       return;

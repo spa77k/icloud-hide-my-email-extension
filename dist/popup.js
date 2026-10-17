@@ -1,5 +1,10 @@
 "use strict";
 (() => {
+  // src/lib/job.ts
+  function shouldAutoCopy(state) {
+    return state.status === "success" && !!state.address && !state.copied && state.verified;
+  }
+
   // src/lib/label.ts
   function sanitizeLabel(value) {
     return value.normalize("NFKC").replace(/[\u0000-\u001f\u007f]/g, "").replace(/\s+/g, " ").trim().slice(0, 80);
@@ -72,15 +77,17 @@
         createButton.textContent = "\u3082\u3046\u4E00\u5EA6\u4F5C\u6210", setStatus(next.message, "error");
         break;
     }
-    let hasAddress = !!next.address;
-    result.hidden = !hasAddress, next.address ? (address.textContent = next.address, copyState.textContent = next.copied ? "\u30B3\u30D4\u30FC\u6E08\u307F" : "") : copyState.textContent = "", openButton.hidden = !(next.status === "awaiting_login" || next.status === "error" || next.status === "uncertain" || next.status === "success"), openButton.textContent = next.status === "success" ? "iCloud\u3067\u78BA\u8A8D" : "iCloud\u3092\u958B\u304F", review.hidden = next.status !== "uncertain", next.status !== "uncertain" ? (reviewCheck.checked = !1, reviewButton.disabled = !0) : reviewButton.disabled = !reviewCheck.checked, schedulePolling(), maybeAutoCopy(next);
+    let hasAddress = !!next.address && next.verified;
+    result.hidden = !hasAddress, copyButton.disabled = !hasAddress, hasAddress ? (address.textContent = next.address, copyState.textContent = next.copied ? "\u30B3\u30D4\u30FC\u6E08\u307F" : "") : copyState.textContent = "", openButton.hidden = !(next.status === "awaiting_login" || next.status === "error" || next.status === "uncertain" || next.status === "success"), openButton.textContent = next.status === "success" ? "iCloud\u3067\u78BA\u8A8D" : "iCloud\u3092\u958B\u304F", review.hidden = next.status !== "uncertain", next.status !== "uncertain" ? (reviewCheck.checked = !1, reviewButton.disabled = !0) : reviewButton.disabled = !reviewCheck.checked, schedulePolling(), maybeAutoCopy(next);
   }
   async function maybeAutoCopy(next) {
-    if (next.status !== "success" || !next.address || autoCopiedJobId === next.jobId) return;
-    if (autoCopiedJobId = next.jobId, next.copied) {
+    if (next.status !== "success" || !next.address) return;
+    if (next.copied) {
       copyState.textContent = "\u30B3\u30D4\u30FC\u6E08\u307F";
       return;
     }
+    if (!shouldAutoCopy(next) || autoCopiedJobId === next.jobId) return;
+    autoCopiedJobId = next.jobId;
     let jobId = next.jobId, address2 = next.address, copied = await copyToClipboard(address2);
     !currentState || currentState.jobId !== jobId || currentState.address !== address2 || (copied ? (copyState.textContent = "\u30B3\u30D4\u30FC\u6E08\u307F", setStatus("\u30A2\u30C9\u30EC\u30B9\u3092\u30AF\u30EA\u30C3\u30D7\u30DC\u30FC\u30C9\u306B\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F\u3002", "success"), await send({ type: "MARK_COPIED", jobId, address: address2 })) : setStatus("\u30A2\u30C9\u30EC\u30B9\u3092\u4F5C\u6210\u3057\u307E\u3057\u305F\u3002\u300C\u30B3\u30D4\u30FC\u300D\u3092\u62BC\u3057\u3066\u304F\u3060\u3055\u3044\u3002", "warning"));
   }
@@ -138,7 +145,7 @@
   });
   copyButton.addEventListener("click", async () => {
     let state = currentState, value = state?.address;
-    if (!state || !value) return;
+    if (!state || !value || !state.verified) return;
     let copied = await copyToClipboard(value);
     !currentState || currentState.jobId !== state.jobId || currentState.address !== value || (copied ? (copyState.textContent = "\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F", setStatus("\u30A2\u30C9\u30EC\u30B9\u3092\u30AF\u30EA\u30C3\u30D7\u30DC\u30FC\u30C9\u306B\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F\u3002", "success"), await send({ type: "MARK_COPIED", jobId: state.jobId, address: value })) : setStatus("\u30B3\u30D4\u30FC\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u30A2\u30C9\u30EC\u30B9\u3092\u9078\u629E\u3057\u3066\u30B3\u30D4\u30FC\u3057\u3066\u304F\u3060\u3055\u3044\u3002", "error"));
   });

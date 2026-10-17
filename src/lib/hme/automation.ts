@@ -16,13 +16,14 @@ import {
   setInputValue,
 } from "./dom";
 
-const ADDRESS_PATTERN = /[a-z0-9._%+-]+\s*@\s*(?:icloud\.com|privaterelay\.appleid\.com)/gi;
+const EXACT_ADDRESS_PATTERN = /^[a-z0-9._%+-]+@(?:icloud\.com|privaterelay\.appleid\.com)$/i;
 const EXCLUDED_LOCAL_PARTS = new Set(["support", "privacy", "apple", "noreply", "no-reply"]);
 
 export interface AutomationOptions {
   timeoutMs?: number;
   pollMs?: number;
   onClick?: () => void;
+  label?: string;
 }
 
 export type PrepareOutcome =
@@ -32,7 +33,7 @@ export type PrepareOutcome =
   | { kind: "none" };
 
 export type CreateOutcome =
-  | { kind: "success"; address: string; copied: boolean }
+  | { kind: "success"; address: string; copied: boolean; verified: boolean }
   | { kind: "failed"; clicked: boolean; code: ErrorCode; message: string };
 
 export class AutomationError extends Error {
@@ -66,31 +67,187 @@ function parentAcrossShadow(element: Element): Element | null {
   return root instanceof ShadowRoot ? root.host : null;
 }
 
-export function extractEmails(doc: Document, scope?: Element): string[] {
-  const found = new Set<string>();
-  const textRoot: Element | null = scope ?? doc.body;
-  const text = (textRoot as HTMLElement | null)?.innerText ?? textRoot?.textContent ?? "";
-  for (const match of text.matchAll(ADDRESS_PATTERN)) {
-    found.add(match[0].replace(/\s+/g, "").toLowerCase());
-  }
+/**
+ * 要素自身のテキストが完全に1つのアドレスであるときだけ返す。
+ * 転送先の説明（「... （主要メールアドレス）」など）や、複数の文言を含む
+ * コンテナは対象外。input/textarea/メモ欄の値も見ない。
+ */
+function exactAddressOf(element: Element): string | null {
+  if (element.matches("input, textarea, select, option, script, style")) return null;
+  const text = normalizeText((element as HTMLElement).innerText ?? element.textContent ?? "");
+  if (!EXACT_ADDRESS_PATTERN.test(text)) return null;
+  const local = text.split("@")[0]?.toLowerCase() ?? "";
+  if (EXCLUDED_LOCAL_PARTS.has(local)) return null;
+  return text.toLowerCase();
+}
 
+function exactAddressElementsWithin(root: Element): HTMLElement[] {
+  const doc = root.ownerDocument ?? document;
+  const matches: HTMLElement[] = [];
   for (const element of allElements(doc)) {
-    if (scope && !scope.contains(element)) continue;
+    if (element !== root && !root.contains(element)) continue;
     if (!isVisible(element)) continue;
-    if (element instanceof HTMLAnchorElement && element.href.startsWith("mailto:")) {
-      const address = decodeURIComponent(element.href.slice("mailto:".length)).split("?")[0] ?? "";
-      if (ADDRESS_PATTERN.test(address)) found.add(address.trim().toLowerCase());
-      ADDRESS_PATTERN.lastIndex = 0;
-    }
-    if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
-      if (ADDRESS_PATTERN.test(element.value)) found.add(element.value.trim().toLowerCase());
-      ADDRESS_PATTERN.lastIndex = 0;
+    if (!exactAddressOf(element)) continue;
+    matches.push(element);
+  }
+  // 見出しとアドレスが連結した親要素を拾わないよう、子孫にも完全一致アドレスが
+  // ある要素は除外して、いちばん内側のアドレス表示だけを残す。
+  return matches.filter((element) => !matches.some((other) => other !== element && element.contains(other)));
+}
+
+const ITEM_LABEL_SELECTOR = "h1, h2, h3, h4, h5, h6, [role='heading']";
+const CREATE_HEADING_MATCHERS = [
+  "新しいメールアドレスを追加",
+  /add a new email address/i,
+  /new email address/i,
+  /set up a new email address/i,
+];
+
+function commonAncestor(elements: Element[]): Element | null {
+  if (elements.length === 0) return null;
+  let current: Element | null = elements[0]!;
+  while (current) {
+    if (elements.every((element) => current!.contains(element))) return current;
+    current = parentAcrossShadow(current);
+  }
+  return null;
+}
+
+/**
+ * 転送先・ラジオグループなど、作成候補ではない領域の境界を集める。
+ * 見出し「転送先」に対応するセクションは、ラジオを含む最も近い先祖とする。
+ */
+function collectExcludedSubtrees(doc: Document): Element[] {
+  const excluded: Element[] = [];
+  for (const element of allElements(doc)) {
+    if (element.matches("[role='radiogroup'], fieldset")) excluded.push(element);
+    if (element instanceof HTMLInputElement && element.type === "radio") {
+      const label = element.closest("label");
+      if (label) excluded.push(label);
     }
   }
 
-  return [...found].filter((address) => {
-    const local = address.split("@")[0] ?? "";
-    return !EXCLUDED_LOCAL_PARTS.has(local);
+  const transferHeading = findByText(doc, ["転送先", /forwarding/i, /forwarded to/i], { maxTextLength: 40 });
+  if (transferHeading) {
+    // 見出し「転送先」を含むセクションを構造で除外する。radioが無く、転送先が
+    // 一覧項目（li/article/button）の形でも、そのセクションごと除外する。
+    const section = transferHeading.closest("section, fieldset, [role='group'], [role='radiogroup'], ul");
+    if (section) {
+      excluded.push(section);
+    } else {
+      let current: Element | null = transferHeading;
+      for (let depth = 0; current && depth < 8; depth += 1) {
+        if (current.querySelector("input[type='radio']")) {
+          excluded.push(current);
+          break;
+        }
+        current = parentAcrossShadow(current);
+      }
+    }
+  }
+  return excluded;
+}
+
+function isWithinExcluded(element: Element, excluded: Element[]): boolean {
+  return excluded.some((root) => root === element || root.contains(element));
+}
+
+function findCreateHeading(doc: Document): HTMLElement | null {
+  return findByText(doc, CREATE_HEADING_MATCHERS, { maxTextLength: 80 });
+}
+
+/**
+ * 作成画面の範囲。作成見出し・ラベル欄・確定ボタンの最も近い共通の先祖に限定し、
+ * body/htmlまで広がる場合は特定不能として null を返す。
+ */
+function findCreateScreen(doc: Document, button: Element): Element | null {
+  const labelInput = findHmeLabelInput(doc);
+  const heading = findCreateHeading(doc);
+  const anchors = [labelInput, heading, button].filter((element): element is Element => Boolean(element));
+  if (anchors.length < 2) return null;
+  const screen = commonAncestor(anchors);
+  if (!screen || screen === doc.body || screen === doc.documentElement) return null;
+  return screen;
+}
+
+/**
+ * 作成画面内の候補アドレス。転送先・ラジオ・既存一覧などの除外領域を除いたうえで、
+ * 完全一致するアドレス表示がちょうど1つのときだけ返す。複数・無しは特定不能。
+ */
+function candidateAddressFromScreen(screen: Element, excluded: Element[]): string | null {
+  const addresses = new Set<string>();
+  for (const element of exactAddressElementsWithin(screen)) {
+    if (isWithinExcluded(element, excluded)) continue;
+    const address = exactAddressOf(element);
+    if (address) addresses.add(address);
+  }
+  return addresses.size === 1 ? [...addresses][0]! : null;
+}
+
+/**
+ * 一覧項目の見出し（ラベル）。実DOMではbutton内のh2など。
+ * アドレスだけの項目や見出しの無い項目はラベル無しとして null。
+ */
+function itemLabelOf(element: Element): string | null {
+  for (const heading of element.querySelectorAll<HTMLElement>(ITEM_LABEL_SELECTOR)) {
+    if (!isVisible(heading)) continue;
+    const text = normalizeText((heading as HTMLElement).innerText ?? heading.textContent ?? "");
+    if (text && !EXACT_ADDRESS_PATTERN.test(text)) return text;
+  }
+  for (const candidate of element.querySelectorAll<HTMLElement>("[class*='heading'], [class*='label']")) {
+    if (!isVisible(candidate)) continue;
+    const text = normalizeText((candidate as HTMLElement).innerText ?? candidate.textContent ?? "");
+    if (text && !EXACT_ADDRESS_PATTERN.test(text)) return text;
+  }
+  return null;
+}
+
+function labelsMatch(itemLabel: string, expected: string): boolean {
+  const normalizedExpected = normalizeText(expected);
+  return normalizedExpected.length > 0 && normalizeText(itemLabel) === normalizedExpected;
+}
+
+export interface AddressListItem {
+  element: HTMLElement;
+  address: string;
+  label: string;
+  text: string;
+}
+
+/**
+ * HMEの作成済み一覧の項目。見出し（ラベル）と、ちょうど1つのアドレスを持つ
+ * button/li/article/listitemに限定し、転送先・ラジオ・作成フォーム内は除外する。
+ * 親子で同じ項目を二重に数えないよう、内側の実項目だけを残す。
+ */
+export function findAddressItems(doc: Document): AddressListItem[] {
+  const excluded = collectExcludedSubtrees(doc);
+  const items: AddressListItem[] = [];
+  for (const element of allElements(doc)) {
+    if (!element.matches("button, li, article, [role='listitem']")) continue;
+    if (!isVisible(element)) continue;
+    if (isWithinExcluded(element, excluded)) continue;
+    if (element.closest("input, textarea, select")) continue;
+    const label = itemLabelOf(element);
+    if (!label) continue;
+    const addresses = new Set<string>();
+    for (const child of exactAddressElementsWithin(element)) {
+      if (isWithinExcluded(child, excluded)) continue;
+      const address = exactAddressOf(child);
+      if (address) addresses.add(address);
+    }
+    if (addresses.size !== 1) continue;
+    const text = normalizeText((element as HTMLElement).innerText ?? element.textContent ?? "");
+    items.push({ element, address: [...addresses][0]!, label, text });
+  }
+  const innermost = items.filter(
+    (item) => !items.some((other) => other !== item && item.element.contains(other.element)),
+  );
+  const seen = new Set<string>();
+  return innermost.filter((item) => {
+    const key = `${item.address}|${item.label}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
   });
 }
 
@@ -249,32 +406,15 @@ export function findCreateButton(doc: Document): HTMLElement | null {
 }
 
 /**
- * 確定ボタンから、そのフォーム（ダイアログ等）の境界を探す。
- * 候補アドレスの取得と「フォームが閉じたか」の判定に使う。
- * ダイアログの印が無い場合は、ラベル入力を含む最も近い先祖を使う。
+ * 作成フォームのラベル欄。iCloudの作成画面の input[name="hme-label"] を優先する。
  */
-function findFormContainer(button: Element): Element | null {
-  let current: Element | null = button;
-  let withInput: Element | null = null;
-  for (let depth = 0; current && depth < 12; depth += 1) {
-    const role = current.getAttribute("role");
-    const tag = current.tagName.toLowerCase();
-    const className = typeof current.className === "string" ? current.className : "";
-    if (
-      role === "dialog" ||
-      current.getAttribute("aria-modal") === "true" ||
-      tag === "dialog" ||
-      tag === "form" ||
-      /dialog|sheet|modal/i.test(className)
-    ) {
-      return current;
+function findHmeLabelInput(doc: Document): HTMLInputElement | HTMLTextAreaElement | null {
+  for (const element of allElements(doc)) {
+    if (element instanceof HTMLInputElement && element.name === "hme-label" && isVisible(element) && !element.disabled) {
+      return element;
     }
-    if (!withInput && current.querySelector("input:not([type='hidden']), textarea")) {
-      withInput = current;
-    }
-    current = parentAcrossShadow(current);
   }
-  return withInput;
+  return findLabelInput(doc);
 }
 
 /**
@@ -440,9 +580,17 @@ export async function createAddress(doc: Document, options: AutomationOptions = 
     clickableButton = enabled;
   }
 
-  const before = new Set(extractEmails(doc));
-  const form = findFormContainer(clickableButton);
-  const candidate = form ? extractEmails(doc, form) : [];
+  const excluded = collectExcludedSubtrees(doc);
+  const form = findCreateScreen(doc, clickableButton);
+  const candidateAddress = form ? candidateAddressFromScreen(form, excluded) : null;
+  if (!candidateAddress) {
+    // 候補を特定できないまま確定すると、転送先やアカウントのメールを結果として
+    // 返す恐れがある。確定せず、未確認として止める。
+    return { kind: "failed", clicked: false, code: "RESULT_UNKNOWN", message: errorMessage("RESULT_UNKNOWN") };
+  }
+
+  const normalizedLabel = normalizeText(options.label ?? findHmeLabelInput(doc)?.value ?? "");
+  const beforeAddresses = new Set(findAddressItems(doc).map((item) => item.address));
   options.onClick?.();
   try {
     clickElement(clickableButton);
@@ -468,17 +616,23 @@ export async function createAddress(doc: Document, options: AutomationOptions = 
     // フォームが開いている間に出たアドレスは候補の生成・再生成の可能性がある。
     // 確定前に成功扱いしないため、フォームが閉じてからだけ成功を判定する。
     if (!isCreateFormOpen(doc, form)) {
-      const current = extractEmails(doc);
-      const confirmed = candidate.find((address) => current.includes(address));
-      if (confirmed) {
-        // コピーはフォーカスされているポップアップ側で行う。背景のiCloudタブの
-        // Clipboard APIに依存しない（copiedはポップアップがMARK_COPIEDで記録する）。
-        return { kind: "success", address: confirmed, copied: false };
+      const items = findAddressItems(doc);
+      const candidateMatches = items.filter(
+        (item) => item.address === candidateAddress && labelsMatch(item.label, normalizedLabel),
+      );
+      if (candidateMatches.length === 1 && !beforeAddresses.has(candidateMatches[0]!.address)) {
+        // 作成前の候補と同じアドレスで、今回のラベル見出しを持つ新しい一覧項目がある。
+        return { kind: "success", address: candidateMatches[0]!.address, copied: false, verified: true };
       }
-      const fresh = current.filter((address) => !before.has(address));
-      if (fresh.length > 0) {
-        const address = fresh[0]!;
-        return { kind: "success", address, copied: false };
+      if (candidateMatches.length === 0 && normalizedLabel.length > 0) {
+        // 候補が確定時に変わった場合でも、今回のラベル見出しを持つ新しい項目が
+        // ちょうど1つだけなら、その作成結果を採用する。
+        const newLabelItems = items.filter(
+          (item) => labelsMatch(item.label, normalizedLabel) && !beforeAddresses.has(item.address),
+        );
+        if (newLabelItems.length === 1) {
+          return { kind: "success", address: newLabelItems[0]!.address, copied: false, verified: true };
+        }
       }
     }
     await sleep(pollMs);

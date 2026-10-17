@@ -1,3 +1,4 @@
+import { shouldAutoCopy } from "./lib/job";
 import { labelFromTab, sanitizeLabel } from "./lib/label";
 import type { JobState, PopupRequest, PopupResponse } from "./lib/protocol";
 
@@ -117,10 +118,12 @@ function render(next: JobState): void {
       break;
   }
 
-  const hasAddress = Boolean(next.address);
+  // 作成を確認できた結果（verified）だけを表示・コピー対象にする。
+  const hasAddress = Boolean(next.address) && next.verified;
   result.hidden = !hasAddress;
-  if (next.address) {
-    address.textContent = next.address;
+  copyButton.disabled = !hasAddress;
+  if (hasAddress) {
+    address.textContent = next.address!;
     copyState.textContent = next.copied ? "コピー済み" : "";
   } else {
     copyState.textContent = "";
@@ -153,13 +156,15 @@ function render(next: JobState): void {
  */
 async function maybeAutoCopy(next: JobState): Promise<void> {
   if (next.status !== "success" || !next.address) return;
-  if (autoCopiedJobId === next.jobId) return;
-  autoCopiedJobId = next.jobId;
-
   if (next.copied) {
     copyState.textContent = "コピー済み";
     return;
   }
+  // 新しい取得ロジックで作成を確認できた結果だけを自動コピーする。
+  // 修正前の結果（verifiedでない）は開き直しても自動コピーしない。
+  if (!shouldAutoCopy(next)) return;
+  if (autoCopiedJobId === next.jobId) return;
+  autoCopiedJobId = next.jobId;
 
   const jobId = next.jobId;
   const address = next.address;
@@ -281,7 +286,8 @@ createButton.addEventListener("click", async () => {
 copyButton.addEventListener("click", async () => {
   const state = currentState;
   const value = state?.address;
-  if (!state || !value) return;
+  // 作成を確認できていない結果はコピーしない（古い誤取得結果の再コピー防止）。
+  if (!state || !value || !state.verified) return;
   const copied = await copyToClipboard(value);
   if (!currentState || currentState.jobId !== state.jobId || currentState.address !== value) return;
   if (copied) {

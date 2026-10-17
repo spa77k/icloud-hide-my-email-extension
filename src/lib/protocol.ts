@@ -35,6 +35,8 @@ export interface JobState {
   message: string;
   address: string | null;
   copied: boolean;
+  /** 新しい取得ロジックで作成を確認できた結果だけ true。古い結果の自動コピーを防ぐ。 */
+  verified: boolean;
   createAttempted: boolean;
   tabId: number | null;
   frameId: number | null;
@@ -58,7 +60,7 @@ export interface PopupResponse {
 
 export type ContentCommand =
   | { type: "PREPARE"; jobId: string; label: string }
-  | { type: "CREATE"; jobId: string };
+  | { type: "CREATE"; jobId: string; label: string };
 
 export type ContentEventPhase =
   | "preparing"
@@ -80,6 +82,7 @@ export interface ContentEventMessage {
   message?: string;
   address?: string;
   copied?: boolean;
+  verified?: boolean;
   clicked?: boolean;
 }
 
@@ -98,6 +101,7 @@ export function idleState(now = Date.now()): JobState {
     message: "",
     address: null,
     copied: false,
+    verified: false,
     createAttempted: false,
     tabId: null,
     frameId: null,

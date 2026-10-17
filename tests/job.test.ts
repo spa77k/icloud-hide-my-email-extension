@@ -5,6 +5,7 @@ import {
   markCopied,
   newJobState,
   restoreState,
+  shouldAutoCopy,
   shouldReloadForPrepare,
 } from "../src/lib/job";
 import { startBlockReason, type ContentEventMessage, type JobState } from "../src/lib/protocol";
@@ -57,13 +58,25 @@ describe("ジョブ状態", () => {
     };
     state = applyContentEvent(
       state,
-      event("job-1", "created", { address: "sample-address@icloud.com", copied: true }),
+      event("job-1", "created", { address: "sample-address@icloud.com", copied: true, verified: true }),
       meta,
     );
     expect(state.status).toBe("success");
     expect(state.address).toBe("sample-address@icloud.com");
     expect(state.copied).toBe(true);
+    expect(state.verified).toBe(true);
     expect(state.message).toContain("クリップボード");
+  });
+
+  it("作成を確認できていないcreatedは成功にしない", () => {
+    const state = applyContentEvent(
+      { ...newJobState("job-1", "example.com", 100), status: "creating", createAttempted: true },
+      event("job-1", "created", { address: "forward-user@icloud.com", verified: false }),
+      meta,
+    );
+    expect(state.status).toBe("uncertain");
+    expect(state.address).toBeNull();
+    expect(state.verified).toBe(false);
   });
 
   it("作成クリック前の失敗はエラー、クリック後の失敗は未確認にする", () => {
@@ -222,5 +235,46 @@ describe("PREPARE無応答時の再読み込み判定", () => {
     expect(shouldReloadForPrepare(ready, "job-1", undefined, false)).toBe(false);
     // 準備中のままなら再読み込みしてよい。
     expect(shouldReloadForPrepare(preparing, "job-1", undefined, false)).toBe(true);
+  });
+});
+
+describe("結果の検証と自動コピー", () => {
+  it("修正前に保存された未確認の成功結果は、未確認にしてアドレスを残さない", () => {
+    const restored = restoreState({
+      ...newJobState("job-1", "example.com", 100),
+      status: "success",
+      address: "forward-user@icloud.com",
+      copied: false,
+      verified: false,
+    });
+    expect(restored.status).toBe("uncertain");
+    expect(restored.address).toBeNull();
+    expect(restored.copied).toBe(false);
+  });
+
+  it("確認済みの成功結果は復元しても保持する", () => {
+    const restored = restoreState({
+      ...newJobState("job-1", "example.com", 100),
+      status: "success",
+      address: "sample-address@icloud.com",
+      copied: false,
+      verified: true,
+    });
+    expect(restored.status).toBe("success");
+    expect(restored.address).toBe("sample-address@icloud.com");
+    expect(restored.verified).toBe(true);
+  });
+
+  it("確認済みの成功だけ自動コピー対象にする", () => {
+    const base = {
+      ...newJobState("job-1", "example.com", 100),
+      status: "success" as const,
+      address: "sample-address@icloud.com",
+      copied: false,
+    };
+    expect(shouldAutoCopy({ ...base, verified: true })).toBe(true);
+    expect(shouldAutoCopy({ ...base, verified: false })).toBe(false);
+    expect(shouldAutoCopy({ ...base, verified: true, copied: true })).toBe(false);
+    expect(shouldAutoCopy({ ...base, verified: true, status: "error" })).toBe(false);
   });
 });

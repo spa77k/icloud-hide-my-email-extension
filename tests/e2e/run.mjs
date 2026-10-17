@@ -248,6 +248,26 @@ try {
   await popup.waitForFunction(() => document.getElementById("copy-state")?.textContent === "コピー済み");
   const clipboardText = await readClipboard();
   assert(clipboardText === firstAddress, `clipboard ${clipboardText} did not match ${firstAddress}`);
+  assert(
+    /^mock-candidate-\d+@icloud\.com$/.test(firstAddress),
+    `returned address was not the create dialog candidate: ${firstAddress}`,
+  );
+
+  // 同じ@icloud.comの転送先・アカウント・メモ・hiddenを混在させても、返る値は今回のHME。
+  const hmeFrameForDecoys = await currentHmeFrame();
+  const decoys = await hmeFrameForDecoys.evaluate(() => ({
+    forward: document.getElementById("forward-value")?.textContent ?? "",
+    account: document.getElementById("account")?.textContent ?? "",
+    memo: document.getElementById("memo")?.value ?? "",
+    hidden: document.getElementById("hidden-address")?.textContent ?? "",
+  }));
+  assert(decoys.forward.includes("forward-user@icloud.com"), "forward decoy was not present");
+  assert(decoys.account.includes("account-user@icloud.com"), "account decoy was not present");
+  assert(decoys.memo.includes("memo-user@icloud.com"), "memo decoy was not present");
+  assert(!firstAddress.includes("forward-user"), "returned the forwarding address");
+  assert(!firstAddress.includes("account-user"), "returned the account address");
+  assert(!firstAddress.includes("memo-user"), "returned the memo address");
+  assert(!firstAddress.includes("hidden-user"), "returned the hidden address");
 
   const firstFrame = await currentHmeFrame();
   const firstCalls = await firstFrame.evaluate(() => window.__createCalls);
@@ -282,6 +302,7 @@ try {
     otherTileClicks,
     regenerateCalls,
     candidateMatched: firstCandidate === firstAddress,
+    hmeOnly: true,
     copied: firstState.copied,
     clipboardMatched: clipboardText === firstAddress,
     icloudActive: icloudAfter[0].active === true,

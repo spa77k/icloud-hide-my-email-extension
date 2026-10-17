@@ -202,7 +202,7 @@ async function launchCreate(jobId: string): Promise<void> {
     errorCode: null,
   });
 
-  const response = await sendToTab(tabId, { type: "CREATE", jobId }, frameId, CREATE_WAIT_MS);
+  const response = await sendToTab(tabId, { type: "CREATE", jobId, label: state.label }, frameId, CREATE_WAIT_MS);
   if (!response) {
     if ((state.status as JobState["status"]) !== "success") commit(markUncertain(state));
     return;

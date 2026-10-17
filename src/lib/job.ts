@@ -51,6 +51,7 @@ export function newJobState(jobId: string, label: string, now = Date.now()): Job
     message: STATUS_MESSAGES.preparing,
     address: null,
     copied: false,
+    verified: false,
     createAttempted: false,
     tabId: null,
     frameId: null,
@@ -72,6 +73,7 @@ export function restoreState(raw: unknown, now = Date.now()): JobState {
     message: typeof value.message === "string" ? value.message : "",
     address: typeof value.address === "string" && isEmail(value.address) ? value.address : null,
     copied: value.copied === true,
+    verified: value.verified === true,
     createAttempted: value.createAttempted === true,
     tabId: typeof value.tabId === "number" ? value.tabId : null,
     frameId: typeof value.frameId === "number" ? value.frameId : null,
@@ -109,6 +111,20 @@ export function restoreState(raw: unknown, now = Date.now()): JobState {
       createAttempted: false,
       frameId: null,
       errorCode: "TIMEOUT",
+      updatedAt: now,
+    };
+  }
+
+  if (restored.status === "success" && !restored.verified) {
+    // 修正前に保存された結果は、作成を確認できていない。
+    // 転送先などを再表示・再コピーしないよう「未確認」にする。
+    return {
+      ...restored,
+      status: "uncertain",
+      address: null,
+      copied: false,
+      message: STATUS_MESSAGES.uncertain,
+      errorCode: "RESULT_UNKNOWN",
       updatedAt: now,
     };
   }
@@ -188,10 +204,13 @@ export function applyContentEvent(
     case "created": {
       if (!state.createAttempted) return state;
       const address = typeof event.address === "string" && isEmail(event.address) ? event.address : null;
-      if (!address) {
+      // 作成を確認できていない結果（verifiedでない）は成功として表示しない。
+      if (!address || event.verified !== true) {
         return {
           ...base,
           status: "uncertain",
+          address: null,
+          copied: false,
           message: STATUS_MESSAGES.uncertain,
           errorCode: "RESULT_UNKNOWN",
         };
@@ -201,6 +220,7 @@ export function applyContentEvent(
         status: "success",
         address,
         copied: event.copied === true,
+        verified: true,
         message: event.copied
           ? "アドレスを作成し、クリップボードにコピーしました。"
           : "アドレスを作成しました。「コピー」を押してください。",
@@ -313,6 +333,15 @@ export function markCopied(state: JobState, jobId: string, address: string, now 
     message: "アドレスをクリップボードにコピーしました。",
     updatedAt: now,
   };
+}
+
+/**
+ * ポップアップを開いたときに自動コピーしてよいか。
+ * 新しい取得ロジックで作成を確認した結果（verified）だけを対象にし、
+ * 修正前の古い結果を開いた際に自動で再コピーしない。
+ */
+export function shouldAutoCopy(state: JobState): boolean {
+  return state.status === "success" && Boolean(state.address) && !state.copied && state.verified;
 }
 
 /**

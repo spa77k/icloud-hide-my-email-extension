@@ -92,7 +92,11 @@ function topPage(currentMode) {
 }
 
 function hmePage(currentMode) {
-  const existing = Array.from({ length: 7 }, (_, index) => `<li class="address-item">existing-${index + 1}@icloud.com</li>`).join("");
+  const existing = Array.from(
+    { length: 7 },
+    (_, index) =>
+      `<li><button class="address-item" type="button"><h2>existing-label-${index + 1}</h2><span class="address-value">existing-${index + 1}@icloud.com</span></button></li>`,
+  ).join("");
   return `<!doctype html>
 <html lang="ja">
 <head><meta charset="utf-8"><title>メールを非公開</title>${styles}</head>
@@ -102,13 +106,19 @@ function hmePage(currentMode) {
   <button id="add" aria-label="追加">＋</button>
   <button id="close-hme" aria-label="閉じる">閉じる</button>
   <ul id="addresses">${existing}</ul>
+  <section id="forwarding-section">
+    <h2>転送先：</h2>
+    <label><input type="radio" name="forward" checked /> <span id="forward-value">forward-user@icloud.com （主要メールアドレス）</span></label>
+  </section>
+  <div id="account">account-user@icloud.com</div>
+  <div id="hidden-address" hidden>hidden-user@icloud.com</div>
   <section id="dialog" role="dialog" aria-modal="true" hidden>
     <ui-panel>
       <h2>新しいメールアドレスを追加</h2>
       <div id="candidate" class="candidate-address"></div>
       <label aria-hidden="true">アドレスにラベルを追加（例：買い物）</label>
       <input id="label" type="text" name="hme-label" />
-      <textarea id="memo" placeholder="メモ（任意）"></textarea>
+      <textarea id="memo" placeholder="メモ（任意）">memo-user@icloud.com</textarea>
       <button id="regenerate" type="button">別のメールアドレスを使用</button>
       <button id="back" type="button">戻る</button>
       <div class="button-bar-side"><button id="create" type="button">メールアドレスを作成</button></div>
@@ -130,6 +140,21 @@ function hmePage(currentMode) {
     function nextCandidate() {
       candidateSeq += 1;
       return "mock-candidate-" + candidateSeq + "@icloud.com";
+    }
+    function appendCreatedItem(address, itemLabel) {
+      const li = document.createElement("li");
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "address-item";
+      item.id = "new-address";
+      const heading = document.createElement("h2");
+      heading.textContent = itemLabel;
+      const value = document.createElement("span");
+      value.className = "address-value";
+      value.textContent = address;
+      item.append(heading, value);
+      li.appendChild(item);
+      document.getElementById("addresses").appendChild(li);
     }
     document.getElementById("add").addEventListener("click", () => {
       window.__address = nextCandidate();
@@ -154,11 +179,7 @@ function hmePage(currentMode) {
         dialog.hidden = true;
         const address = window.__address || candidate.textContent || "";
         window.__address = address;
-        const created = document.createElement("li");
-        created.className = "address-item";
-        created.id = "new-address";
-        created.textContent = address;
-        document.getElementById("addresses").appendChild(created);
+        appendCreatedItem(address, label.value || "example.com");
       };
       // slow は、ポップアップを閉じてもジョブが続くことを確認するために遅らせる。
       if (mode === "slow") {
