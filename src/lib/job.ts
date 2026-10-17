@@ -300,14 +300,36 @@ export function markAuth(state: JobState, code: "AUTH_REQUIRED" | "SESSION_EXPIR
   };
 }
 
-export function markCopied(state: JobState, now = Date.now()): JobState {
+/**
+ * コピーしたジョブとアドレスが一致する成功状態だけを「コピー済み」にする。
+ * 古いポップアップの非同期コピー完了が、新しい成功ジョブを書き換えないようにする。
+ */
+export function markCopied(state: JobState, jobId: string, address: string, now = Date.now()): JobState {
   if (state.status !== "success" || !state.address || state.copied) return state;
+  if (state.jobId !== jobId || state.address !== address) return state;
   return {
     ...state,
     copied: true,
     message: "アドレスをクリップボードにコピーしました。",
     updatedAt: now,
   };
+}
+
+/**
+ * PREPAREに応答が無いときに、裏のまま再読み込みしてよいか。
+ * 送信中に準備完了・作成開始・終端へ進んでいたら、確定処理を壊さないため false。
+ */
+export function shouldReloadForPrepare(
+  state: JobState,
+  jobId: string,
+  response: unknown,
+  alreadyReloaded: boolean,
+): boolean {
+  if (alreadyReloaded) return false;
+  if (response !== undefined) return false;
+  if (state.jobId !== jobId) return false;
+  if (state.status !== "preparing" || state.createAttempted) return false;
+  return true;
 }
 
 export function acknowledgeReview(state: JobState, now = Date.now()): JobState {

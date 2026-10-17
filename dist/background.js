@@ -242,13 +242,16 @@
       updatedAt: now
     };
   }
-  function markCopied(state2, now = Date.now()) {
-    return state2.status !== "success" || !state2.address || state2.copied ? state2 : {
+  function markCopied(state2, jobId, address, now = Date.now()) {
+    return state2.status !== "success" || !state2.address || state2.copied || state2.jobId !== jobId || state2.address !== address ? state2 : {
       ...state2,
       copied: !0,
       message: "\u30A2\u30C9\u30EC\u30B9\u3092\u30AF\u30EA\u30C3\u30D7\u30DC\u30FC\u30C9\u306B\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F\u3002",
       updatedAt: now
     };
+  }
+  function shouldReloadForPrepare(state2, jobId, response, alreadyReloaded) {
+    return !(alreadyReloaded || response !== void 0 || state2.jobId !== jobId || state2.status !== "preparing" || state2.createAttempted);
   }
   function acknowledgeReview(state2, now = Date.now()) {
     return state2.status !== "uncertain" ? state2 : {
@@ -405,7 +408,15 @@
       }
       if (state.status === "awaiting_login" || state.status === "error" || state.status === "uncertain" || state.status === "success")
         return;
-      if (await sendToTab(tabId, { type: "PREPARE", jobId, label: state.label }, void 0, 8e3) === void 0 && !reloaded) {
+      let response = await sendToTab(tabId, { type: "PREPARE", jobId, label: state.label }, void 0, 8e3), currentStatus = state.status;
+      if (state.jobId !== jobId) return;
+      if (currentStatus === "ready") {
+        await launchCreate(jobId);
+        return;
+      }
+      if (currentStatus !== "preparing" || state.createAttempted)
+        return;
+      if (shouldReloadForPrepare(state, jobId, response, reloaded)) {
         reloaded = !0;
         try {
           await chrome.tabs.reload(tabId);
@@ -454,7 +465,7 @@
         return { ok: !0, state };
       }
       case "MARK_COPIED":
-        return commit(markCopied(state)), { ok: !0, state };
+        return commit(markCopied(state, message.jobId, message.address)), { ok: !0, state };
       case "ACK_REVIEW":
         return commit(acknowledgeReview(state)), { ok: !0, state };
     }

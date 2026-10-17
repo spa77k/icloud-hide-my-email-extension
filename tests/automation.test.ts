@@ -144,7 +144,7 @@ function appendCreatedAddress(address: string): void {
 }
 
 describe("アドレス作成", () => {
-  it("候補の表示→確定1回→フォームが閉じて同じ候補が一覧に出たらコピーする", async () => {
+  it("候補の表示→確定1回→フォームが閉じて同じ候補が一覧に出たら成功として返す", async () => {
     setBody(hmeDialogMarkup({ candidate: "candidate-one@icloud.com" }));
     const writeText = mockClipboard();
     const dialog = document.getElementById("dialog")!;
@@ -160,9 +160,10 @@ describe("アドレス作成", () => {
 
     const result = await createAddress(document, { timeoutMs: 500, pollMs: 5 });
 
-    expect(result).toEqual({ kind: "success", address: "candidate-one@icloud.com", copied: true });
+    // コピーはポップアップ側で行う。背景の content script はコピーしない。
+    expect(result).toEqual({ kind: "success", address: "candidate-one@icloud.com", copied: false });
     expect(createClicks).toHaveBeenCalledTimes(1);
-    expect(writeText).toHaveBeenCalledWith("candidate-one@icloud.com");
+    expect(writeText).not.toHaveBeenCalled();
   });
 
   it("確定前に候補が生成されても成功扱いしない", async () => {
@@ -198,7 +199,7 @@ describe("アドレス作成", () => {
     expect(writeText).not.toHaveBeenCalled();
   });
 
-  it("フォームが閉じて新しいアドレスが出たら、そのアドレスをコピーする", async () => {
+  it("フォームが閉じて新しいアドレスが出たら、そのアドレスで成功として返す", async () => {
     setBody(hmeDialogMarkup());
     const writeText = mockClipboard();
     const dialog = document.getElementById("dialog")!;
@@ -210,8 +211,8 @@ describe("アドレス作成", () => {
 
     const result = await createAddress(document, { timeoutMs: 500, pollMs: 5 });
 
-    expect(result).toEqual({ kind: "success", address: "generated-one@icloud.com", copied: true });
-    expect(writeText).toHaveBeenCalledWith("generated-one@icloud.com");
+    expect(result).toEqual({ kind: "success", address: "generated-one@icloud.com", copied: false });
+    expect(writeText).not.toHaveBeenCalled();
   });
 
   it("確定時に候補が別のアドレスへ変わったら、作成された方を使う", async () => {
@@ -226,11 +227,11 @@ describe("アドレス作成", () => {
 
     const result = await createAddress(document, { timeoutMs: 500, pollMs: 5 });
 
-    expect(result).toEqual({ kind: "success", address: "after-change@icloud.com", copied: true });
-    expect(writeText).toHaveBeenCalledWith("after-change@icloud.com");
+    expect(result).toEqual({ kind: "success", address: "after-change@icloud.com", copied: false });
+    expect(writeText).not.toHaveBeenCalled();
   });
 
-  it("既存アドレスがあっても、確定した候補のアドレスをコピーする", async () => {
+  it("既存アドレスがあっても、確定した候補のアドレスを使う", async () => {
     setBody(hmeDialogMarkup({ candidate: "candidate-two@icloud.com", existing: ["existing-one@icloud.com"] }));
     const writeText = mockClipboard();
     const dialog = document.getElementById("dialog")!;
@@ -244,8 +245,8 @@ describe("アドレス作成", () => {
 
     const result = await createAddress(document, { timeoutMs: 500, pollMs: 5 });
 
-    expect(result).toEqual({ kind: "success", address: "candidate-two@icloud.com", copied: true });
-    expect(writeText).toHaveBeenCalledWith("candidate-two@icloud.com");
+    expect(result).toEqual({ kind: "success", address: "candidate-two@icloud.com", copied: false });
+    expect(writeText).not.toHaveBeenCalled();
   });
 
   it("確定ボタンにaria-labelが付いていても、表示テキストが一致すれば押す", async () => {
@@ -266,7 +267,7 @@ describe("アドレス作成", () => {
 
     const result = await createAddress(document, { timeoutMs: 500, pollMs: 5 });
 
-    expect(result).toEqual({ kind: "success", address: "aria-candidate@icloud.com", copied: true });
+    expect(result).toEqual({ kind: "success", address: "aria-candidate@icloud.com", copied: false });
   });
 
   it("作成失敗の表示を検出し、再試行せず、コピーしない", async () => {
@@ -341,10 +342,10 @@ describe("アドレス作成", () => {
 
     const result = await createAddress(document, { timeoutMs: 500, pollMs: 5 });
 
-    expect(result).toEqual({ kind: "success", address: "candidate-ui@icloud.com", copied: true });
+    expect(result).toEqual({ kind: "success", address: "candidate-ui@icloud.com", copied: false });
     expect(confirmClicks).toHaveBeenCalledTimes(1);
     expect(regenerateClicks).not.toHaveBeenCalled();
-    expect(writeText).toHaveBeenCalledWith("candidate-ui@icloud.com");
+    expect(writeText).not.toHaveBeenCalled();
   });
 });
 

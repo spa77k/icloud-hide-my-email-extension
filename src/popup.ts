@@ -161,11 +161,15 @@ async function maybeAutoCopy(next: JobState): Promise<void> {
     return;
   }
 
-  const copied = await copyToClipboard(next.address);
+  const jobId = next.jobId;
+  const address = next.address;
+  const copied = await copyToClipboard(address);
+  // コピー中に別のジョブ結果へ変わっていたら、古い結果で表示を書き換えない。
+  if (!currentState || currentState.jobId !== jobId || currentState.address !== address) return;
   if (copied) {
     copyState.textContent = "コピー済み";
     setStatus("アドレスをクリップボードにコピーしました。", "success");
-    await send({ type: "MARK_COPIED" });
+    await send({ type: "MARK_COPIED", jobId, address });
   } else {
     setStatus("アドレスを作成しました。「コピー」を押してください。", "warning");
   }
@@ -275,13 +279,15 @@ createButton.addEventListener("click", async () => {
 });
 
 copyButton.addEventListener("click", async () => {
-  const value = currentState?.address;
-  if (!value) return;
+  const state = currentState;
+  const value = state?.address;
+  if (!state || !value) return;
   const copied = await copyToClipboard(value);
+  if (!currentState || currentState.jobId !== state.jobId || currentState.address !== value) return;
   if (copied) {
     copyState.textContent = "コピーしました";
     setStatus("アドレスをクリップボードにコピーしました。", "success");
-    await send({ type: "MARK_COPIED" });
+    await send({ type: "MARK_COPIED", jobId: state.jobId, address: value });
   } else {
     setStatus("コピーできませんでした。アドレスを選択してコピーしてください。", "error");
   }

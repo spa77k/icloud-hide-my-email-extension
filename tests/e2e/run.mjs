@@ -52,6 +52,43 @@ async function activeTabId() {
   return popup.evaluate(async () => (await chrome.tabs.query({ active: true, currentWindow: true }))[0]?.id);
 }
 
+// ポップアップを閉じていても、Service Workerの保存状態とタブ状態をテスト側から観測する。
+async function readStoredState() {
+  const workers = context.serviceWorkers();
+  if (workers.length === 0) return null;
+  try {
+    return await workers[0].evaluate(async () => {
+      const stored = await chrome.storage.session.get("hmeJobState");
+      return stored.hmeJobState;
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function waitForStoredStatus(status, timeout = 35000) {
+  const deadline = Date.now() + timeout;
+  let last;
+  while (Date.now() < deadline) {
+    last = await readStoredState();
+    if (last?.status === status) return last;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  throw new Error(`stored status ${status} was not reached; last ${last?.status}`);
+}
+
+async function workerTabs() {
+  const workers = context.serviceWorkers();
+  if (workers.length === 0) return [];
+  return workers[0].evaluate(() => chrome.tabs.query({}));
+}
+
+async function workerActiveTabId() {
+  const workers = context.serviceWorkers();
+  if (workers.length === 0) return undefined;
+  return workers[0].evaluate(async () => (await chrome.tabs.query({ active: true, currentWindow: true }))[0]?.id);
+}
+
 function icloudTabs(tabs) {
   return tabs.filter((tab) => tab.url?.startsWith(`${baseUrl}/icloudplus`));
 }
@@ -176,7 +213,8 @@ try {
   profileDir = launched.userDataDir;
   const popupUrl = `chrome-extension://${launched.extensionId}/popup.html`;
 
-  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  // 読み取りだけテスト用に許可する。書き込みは製品のmanifest clipboardWriteで動くことを確認する。
+  await context.grantPermissions(["clipboard-read"]);
 
   // 元の入力サイト。再読み込みされていないことをマーカーで確認する。
   const sourcePage = await context.newPage();
@@ -251,17 +289,32 @@ try {
     sourceReloaded: marker !== "keep",
   });
 
-  // 既存のiCloudタブを再利用し、新しいタブを開かない。
-  // 模擬HMEの内部状態をリセットするためテスト側で裏のまま再読み込みする。
-  await icloudPageInstance.reload();
+  // 同じiCloud画面のまま連続作成する（テスト側でもreload/gotoしない）。
   await clickCreate();
-  await waitForResult();
+  const secondAddress = await waitForResult();
   await waitForCopied();
+  assert(secondAddress !== firstAddress, `second address was the same: ${secondAddress}`);
   const tabsReuse = await getTabs();
   const icloudReuse = icloudTabs(tabsReuse);
   assert(icloudReuse.length === 1, `iCloud tabs after reuse: ${icloudReuse.length}`);
   assert(icloudReuse[0].active === false, "reused iCloud tab became active");
-  results.push({ scenario: "iCloudタブを再利用", iCloudTabs: icloudReuse.length, active: icloudReuse[0].active });
+  const reuseFrame = await currentHmeFrame();
+  const reuseCreateCalls = await reuseFrame.evaluate(() => window.__createCalls);
+  const reuseRegenerateCalls = await reuseFrame.evaluate(() => window.__regenerateCalls);
+  const reuseCandidate = await reuseFrame.evaluate(() => window.__address);
+  assert(reuseCreateCalls === 2, `confirm was pressed ${reuseCreateCalls} times after reuse`);
+  assert(reuseRegenerateCalls === 0, `regenerate was pressed ${reuseRegenerateCalls} times after reuse`);
+  assert(reuseCandidate === secondAddress, `second candidate ${reuseCandidate} did not match ${secondAddress}`);
+  results.push({
+    scenario: "iCloudタブを再利用（reloadなし・別アドレス）",
+    iCloudTabs: icloudReuse.length,
+    active: icloudReuse[0].active,
+    firstAddress,
+    secondAddress,
+    distinct: secondAddress !== firstAddress,
+    createCalls: reuseCreateCalls,
+    regenerateCalls: reuseRegenerateCalls,
+  });
 
   // ユーザーが明示的に押したときだけ前面化する。
   await popup.evaluate(async () => {
@@ -327,6 +380,8 @@ try {
   await clickCreate();
   await waitForResult();
   await waitForCopied();
+  const duplicateFrame = await currentHmeFrame();
+  const callsBeforeDuplicate = await duplicateFrame.evaluate(() => window.__createCalls);
   const duplicateResponses = await popup.evaluate(async () => {
     return Promise.all([
       chrome.runtime.sendMessage({ type: "START_JOB", label: "duplicate.example" }),
@@ -340,31 +395,67 @@ try {
   const duplicateState = await waitForStatus("success", 35000, acceptedState.jobId);
   const duplicateAddress = duplicateState.address;
   assert(duplicateAddress, "duplicate test did not produce an address");
-  const duplicateFrame = await currentHmeFrame();
   const duplicateCalls = await duplicateFrame.evaluate(() => window.__createCalls);
-  assert(duplicateCalls === 1, `duplicate job pressed create ${duplicateCalls} times`);
-  results.push({ scenario: "二重開始", acceptedStarts: accepted, createCalls: duplicateCalls, addressShown: Boolean(duplicateAddress) });
+  const duplicateClicks = duplicateCalls - callsBeforeDuplicate;
+  assert(duplicateClicks === 1, `duplicate job pressed create ${duplicateClicks} times`);
+  results.push({
+    scenario: "二重開始",
+    acceptedStarts: accepted,
+    createClicksForDuplicate: duplicateClicks,
+    addressShown: Boolean(duplicateAddress),
+  });
 
-  // ポップアップを閉じてもジョブは続き、開き直すと結果を確認・コピーできる。
+  // ポップアップを閉じてもジョブは続き、閉じたまま完了することを
+  // Service Workerの保存状態とタブ状態からテスト側で観測する。
   await setMode("slow");
   await icloudPageInstance.reload();
   await popup.bringToFront();
   await clickCreate();
   await waitForActive();
   await popup.close();
+
+  // 元サイトを前面に戻し、ポップアップは閉じたまま完了を待つ。
+  await sourcePage.bringToFront();
+  const sourceActiveId = await workerActiveTabId();
+  const storedSuccess = await waitForStoredStatus("success", 35000);
+  assert(storedSuccess.address, "job did not finish while the popup was closed");
+  // 裏のiCloudタブ（背景文書）ではコピーできない通常条件。
+  // ここで copied が true ならテストが甘いので失敗させる。
+  assert(storedSuccess.copied === false, "background document copied the address without the popup");
+
+  const resumeTabs = await workerTabs();
+  const icloudResume = icloudTabs(resumeTabs);
+  assert(icloudResume.length === 1, `iCloud tabs while popup closed: ${icloudResume.length}`);
+  assert(icloudResume[0].active === false, "iCloud tab became active while the popup was closed");
+  const activeWhileClosed = await workerActiveTabId();
+  assert(
+    activeWhileClosed === sourceActiveId,
+    `active tab changed while popup closed: ${activeWhileClosed} !== ${sourceActiveId}`,
+  );
+  assert(activeWhileClosed !== icloudResume[0].id, "iCloud tab was active while the popup was closed");
+  const sourceFocused = await sourcePage.evaluate(() => document.hasFocus());
+  const sourceVisibility = await sourcePage.evaluate(() => document.visibilityState);
+
+  // 開き直すと結果が表示され、ポップアップ側でコピーされる。
   const resumedPopup = await context.newPage();
   await resumedPopup.setViewportSize({ width: 380, height: 640 });
   await resumedPopup.goto(popupUrl);
   popup = resumedPopup;
   await popup.bringToFront();
   const resumedState = await waitForStatus("success", 35000);
-  assert(resumedState.address, "job did not finish after the popup closed");
+  assert(resumedState.address === storedSuccess.address, "reopened popup showed a different address");
   const resumedAddress = await waitForResult();
   await waitForCopied();
   const resumedClipboard = await readClipboard();
   assert(resumedClipboard === resumedAddress, "reopened popup did not copy the address");
   results.push({
     scenario: "ポップアップを閉じて再表示",
+    completedWhileClosed: true,
+    backgroundCopied: storedSuccess.copied,
+    sourceActiveWhileClosed: activeWhileClosed === sourceActiveId,
+    sourceFocused,
+    sourceVisibility,
+    icloudActiveWhileClosed: icloudResume[0].active,
     addressShown: Boolean(resumedAddress),
     copied: true,
     clipboardMatched: resumedClipboard === resumedAddress,

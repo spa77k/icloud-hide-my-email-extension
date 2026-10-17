@@ -416,30 +416,6 @@ function findCreationError(doc: Document): string | null {
   return null;
 }
 
-async function copyText(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    // Clipboard APIが使えない場合は、選択とexecCommandで試す。
-  }
-
-  try {
-    const area = document.createElement("textarea");
-    area.value = text;
-    area.setAttribute("readonly", "");
-    area.style.position = "fixed";
-    area.style.opacity = "0";
-    document.body.appendChild(area);
-    area.select();
-    const copied = document.execCommand("copy");
-    area.remove();
-    return copied;
-  } catch {
-    return false;
-  }
-}
-
 export async function createAddress(doc: Document, options: AutomationOptions = {}): Promise<CreateOutcome> {
   if (navigator.onLine === false) throw new AutomationError("NETWORK");
 
@@ -495,14 +471,14 @@ export async function createAddress(doc: Document, options: AutomationOptions = 
       const current = extractEmails(doc);
       const confirmed = candidate.find((address) => current.includes(address));
       if (confirmed) {
-        const copied = await copyText(confirmed);
-        return { kind: "success", address: confirmed, copied };
+        // コピーはフォーカスされているポップアップ側で行う。背景のiCloudタブの
+        // Clipboard APIに依存しない（copiedはポップアップがMARK_COPIEDで記録する）。
+        return { kind: "success", address: confirmed, copied: false };
       }
       const fresh = current.filter((address) => !before.has(address));
       if (fresh.length > 0) {
         const address = fresh[0]!;
-        const copied = await copyText(address);
-        return { kind: "success", address, copied };
+        return { kind: "success", address, copied: false };
       }
     }
     await sleep(pollMs);

@@ -398,20 +398,6 @@
     }
     return null;
   }
-  async function copyText(text) {
-    try {
-      return await navigator.clipboard.writeText(text), !0;
-    } catch {
-    }
-    try {
-      let area = document.createElement("textarea");
-      area.value = text, area.setAttribute("readonly", ""), area.style.position = "fixed", area.style.opacity = "0", document.body.appendChild(area), area.select();
-      let copied = document.execCommand("copy");
-      return area.remove(), copied;
-    } catch {
-      return !1;
-    }
-  }
   async function createAddress(doc, options = {}) {
     if (navigator.onLine === !1) throw new AutomationError("NETWORK");
     let button = findCreateButton(doc);
@@ -449,15 +435,11 @@
         };
       if (!isCreateFormOpen(doc, form)) {
         let current = extractEmails(doc), confirmed = candidate.find((address) => current.includes(address));
-        if (confirmed) {
-          let copied = await copyText(confirmed);
-          return { kind: "success", address: confirmed, copied };
-        }
+        if (confirmed)
+          return { kind: "success", address: confirmed, copied: !1 };
         let fresh = current.filter((address) => !before.has(address));
-        if (fresh.length > 0) {
-          let address = fresh[0], copied = await copyText(address);
-          return { kind: "success", address, copied };
-        }
+        if (fresh.length > 0)
+          return { kind: "success", address: fresh[0], copied: !1 };
       }
       await sleep(pollMs);
     }

@@ -6,6 +6,7 @@ import {
   markUncertain,
   newJobState,
   restoreState,
+  shouldReloadForPrepare,
   STATUS_MESSAGES,
 } from "./lib/job";
 import { sanitizeLabel } from "./lib/label";
@@ -253,7 +254,18 @@ async function runJob(jobId: string): Promise<void> {
       return;
     }
     const response = await sendToTab(tabId, { type: "PREPARE", jobId, label: state.label }, undefined, 8000);
-    if (response === undefined && !reloaded) {
+    // await中にhandleContentEventが状態を進めることがあるため、改めて読む。
+    const currentStatus = state.status as JobState["status"];
+    if (state.jobId !== jobId) return;
+    if (currentStatus === "ready") {
+      await launchCreate(jobId);
+      return;
+    }
+    if (currentStatus !== "preparing" || state.createAttempted) {
+      // 送信中に作成開始や終端へ進んでいたら、確定処理を壊さないよう何もしない。
+      return;
+    }
+    if (shouldReloadForPrepare(state, jobId, response, reloaded)) {
       // タブが読み込み済みでも、拡張の再読み込み後などはコンテンツスクリプトが
       // 入っていないことがある。前面化せず、裏のまま一度だけ再読み込みして再試行する。
       reloaded = true;
@@ -329,7 +341,7 @@ async function handlePopupMessage(message: PopupRequest): Promise<PopupResponse>
     }
 
     case "MARK_COPIED":
-      commit(markCopied(state));
+      commit(markCopied(state, message.jobId, message.address));
       return { ok: true, state };
 
     case "ACK_REVIEW":

@@ -81,7 +81,8 @@
       copyState.textContent = "\u30B3\u30D4\u30FC\u6E08\u307F";
       return;
     }
-    await copyToClipboard(next.address) ? (copyState.textContent = "\u30B3\u30D4\u30FC\u6E08\u307F", setStatus("\u30A2\u30C9\u30EC\u30B9\u3092\u30AF\u30EA\u30C3\u30D7\u30DC\u30FC\u30C9\u306B\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F\u3002", "success"), await send({ type: "MARK_COPIED" })) : setStatus("\u30A2\u30C9\u30EC\u30B9\u3092\u4F5C\u6210\u3057\u307E\u3057\u305F\u3002\u300C\u30B3\u30D4\u30FC\u300D\u3092\u62BC\u3057\u3066\u304F\u3060\u3055\u3044\u3002", "warning");
+    let jobId = next.jobId, address2 = next.address, copied = await copyToClipboard(address2);
+    !currentState || currentState.jobId !== jobId || currentState.address !== address2 || (copied ? (copyState.textContent = "\u30B3\u30D4\u30FC\u6E08\u307F", setStatus("\u30A2\u30C9\u30EC\u30B9\u3092\u30AF\u30EA\u30C3\u30D7\u30DC\u30FC\u30C9\u306B\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F\u3002", "success"), await send({ type: "MARK_COPIED", jobId, address: address2 })) : setStatus("\u30A2\u30C9\u30EC\u30B9\u3092\u4F5C\u6210\u3057\u307E\u3057\u305F\u3002\u300C\u30B3\u30D4\u30FC\u300D\u3092\u62BC\u3057\u3066\u304F\u3060\u3055\u3044\u3002", "warning"));
   }
   async function refresh() {
     let response = await send({ type: "GET_STATE" });
@@ -136,9 +137,10 @@
     ), review.scrollIntoView({ block: "nearest" })) : response.reason === "busy" && setStatus("\u4F5C\u6210\u51E6\u7406\u4E2D\u3067\u3059\u3002\u5B8C\u4E86\u307E\u3067\u305D\u306E\u307E\u307E\u304A\u5F85\u3061\u304F\u3060\u3055\u3044\u3002", "warning"));
   });
   copyButton.addEventListener("click", async () => {
-    let value = currentState?.address;
-    if (!value) return;
-    await copyToClipboard(value) ? (copyState.textContent = "\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F", setStatus("\u30A2\u30C9\u30EC\u30B9\u3092\u30AF\u30EA\u30C3\u30D7\u30DC\u30FC\u30C9\u306B\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F\u3002", "success"), await send({ type: "MARK_COPIED" })) : setStatus("\u30B3\u30D4\u30FC\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u30A2\u30C9\u30EC\u30B9\u3092\u9078\u629E\u3057\u3066\u30B3\u30D4\u30FC\u3057\u3066\u304F\u3060\u3055\u3044\u3002", "error");
+    let state = currentState, value = state?.address;
+    if (!state || !value) return;
+    let copied = await copyToClipboard(value);
+    !currentState || currentState.jobId !== state.jobId || currentState.address !== value || (copied ? (copyState.textContent = "\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F", setStatus("\u30A2\u30C9\u30EC\u30B9\u3092\u30AF\u30EA\u30C3\u30D7\u30DC\u30FC\u30C9\u306B\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F\u3002", "success"), await send({ type: "MARK_COPIED", jobId: state.jobId, address: value })) : setStatus("\u30B3\u30D4\u30FC\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u30A2\u30C9\u30EC\u30B9\u3092\u9078\u629E\u3057\u3066\u30B3\u30D4\u30FC\u3057\u3066\u304F\u3060\u3055\u3044\u3002", "error"));
   });
   openButton.addEventListener("click", () => {
     send({ type: "OPEN_ICLOUD" });

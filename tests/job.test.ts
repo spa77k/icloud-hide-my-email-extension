@@ -5,6 +5,7 @@ import {
   markCopied,
   newJobState,
   restoreState,
+  shouldReloadForPrepare,
 } from "../src/lib/job";
 import { startBlockReason, type ContentEventMessage, type JobState } from "../src/lib/protocol";
 
@@ -149,24 +150,36 @@ describe("ジョブ状態", () => {
     expect(startBlockReason(next)).toBeNull();
   });
 
-  it("成功とアドレスがあるときだけコピー済みにできる", () => {
+  it("成功とアドレスが一致するときだけコピー済みにできる", () => {
     const success = {
       ...newJobState("job-1", "example.com", 100),
       status: "success" as const,
       address: "sample-address@icloud.com",
       copied: false,
     };
-    const copied = markCopied(success, 200);
+    const copied = markCopied(success, "job-1", "sample-address@icloud.com", 200);
     expect(copied.copied).toBe(true);
     expect(copied.message).toContain("クリップボード");
     expect(copied.updatedAt).toBe(200);
+  });
+
+  it("古いジョブや異なるアドレスのコピー記録は拒否する", () => {
+    const success = {
+      ...newJobState("job-1", "example.com", 100),
+      status: "success" as const,
+      address: "sample-address@icloud.com",
+      copied: false,
+    };
+    // 古いポップアップの非同期コピー完了が、新しい成功ジョブを書き換えない。
+    expect(markCopied(success, "job-old", "sample-address@icloud.com", 200)).toBe(success);
+    expect(markCopied(success, "job-1", "other-address@icloud.com", 200)).toBe(success);
 
     // 失敗中・アドレス無しでは変化しない（誤ったコピー済み表示を防ぐ）。
     const failed = { ...newJobState("job-2", "example.com", 100), status: "error" as const };
-    expect(markCopied(failed, 200)).toBe(failed);
+    expect(markCopied(failed, "job-2", "sample-address@icloud.com", 200)).toBe(failed);
 
     const noAddress = { ...success, address: null };
-    expect(markCopied(noAddress, 200)).toBe(noAddress);
+    expect(markCopied(noAddress, "job-1", "sample-address@icloud.com", 200)).toBe(noAddress);
   });
 
   it("コピー済みの状態は再度変えない", () => {
@@ -176,6 +189,38 @@ describe("ジョブ状態", () => {
       address: "sample-address@icloud.com",
       copied: true,
     };
-    expect(markCopied(success, 200)).toBe(success);
+    expect(markCopied(success, "job-1", "sample-address@icloud.com", 200)).toBe(success);
+  });
+});
+
+describe("PREPARE無応答時の再読み込み判定", () => {
+  it("準備中で未作成の無応答だけ再読み込みする", () => {
+    const preparing = newJobState("job-1", "example.com", 100);
+    expect(shouldReloadForPrepare(preparing, "job-1", undefined, false)).toBe(true);
+    // 応答があった、別ジョブ、再読み込み済みは対象外。
+    expect(shouldReloadForPrepare(preparing, "job-1", { ok: true }, false)).toBe(false);
+    expect(shouldReloadForPrepare(preparing, "job-2", undefined, false)).toBe(false);
+    expect(shouldReloadForPrepare(preparing, "job-1", undefined, true)).toBe(false);
+  });
+
+  it("遅いPREPARE応答中に作成開始・終端へ進んだら再読み込みしない", () => {
+    const preparing = newJobState("job-1", "example.com", 100);
+    const ready = { ...preparing, status: "ready" as const };
+    const creating = { ...preparing, status: "creating" as const, createAttempted: true };
+    const success = {
+      ...preparing,
+      status: "success" as const,
+      createAttempted: true,
+      address: "sample-address@icloud.com",
+    };
+    const error = { ...preparing, status: "error" as const };
+
+    for (const state of [ready, creating, success, error]) {
+      expect(shouldReloadForPrepare(state, "job-1", undefined, false)).toBe(false);
+    }
+    // 準備完了した直後（createAttempted前）でも、確定処理へ進んでいるので対象外。
+    expect(shouldReloadForPrepare(ready, "job-1", undefined, false)).toBe(false);
+    // 準備中のままなら再読み込みしてよい。
+    expect(shouldReloadForPrepare(preparing, "job-1", undefined, false)).toBe(true);
   });
 });

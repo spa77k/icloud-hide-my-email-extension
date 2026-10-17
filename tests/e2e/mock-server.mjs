@@ -76,8 +76,8 @@ function topPage(currentMode) {
       tileButton.addEventListener("click", () => {
         window.__tileClicks += 1;
         const frame = document.getElementById("hme");
-        // 毎回、サーバーの現在モードでHMEフレームを読み直す。
-        if (frame) frame.src = "/hme?t=" + Date.now();
+        // 既にHMEが開いていればそのまま使う。連続作成は同じ画面のまま行う。
+        if (frame && !frame.src) frame.src = "/hme?t=" + Date.now();
       });
     }
     const otherButton = document.getElementById("other-tile-button");
