@@ -617,22 +617,14 @@ export async function createAddress(doc: Document, options: AutomationOptions = 
     // 確定前に成功扱いしないため、フォームが閉じてからだけ成功を判定する。
     if (!isCreateFormOpen(doc, form)) {
       const items = findAddressItems(doc);
+      // 保持した今回の作成候補と一致する一覧項目に限る。ラベル見出しの完全一致も
+      // 必要。候補が変わった場合や一致する項目が無い場合は、本物を一意に保証
+      // できないため成功にせず未確認で止める（同じラベルの別項目を拾わない）。
       const candidateMatches = items.filter(
         (item) => item.address === candidateAddress && labelsMatch(item.label, normalizedLabel),
       );
       if (candidateMatches.length === 1 && !beforeAddresses.has(candidateMatches[0]!.address)) {
-        // 作成前の候補と同じアドレスで、今回のラベル見出しを持つ新しい一覧項目がある。
         return { kind: "success", address: candidateMatches[0]!.address, copied: false, verified: true };
-      }
-      if (candidateMatches.length === 0 && normalizedLabel.length > 0) {
-        // 候補が確定時に変わった場合でも、今回のラベル見出しを持つ新しい項目が
-        // ちょうど1つだけなら、その作成結果を採用する。
-        const newLabelItems = items.filter(
-          (item) => labelsMatch(item.label, normalizedLabel) && !beforeAddresses.has(item.address),
-        );
-        if (newLabelItems.length === 1) {
-          return { kind: "success", address: newLabelItems[0]!.address, copied: false, verified: true };
-        }
       }
     }
     await sleep(pollMs);

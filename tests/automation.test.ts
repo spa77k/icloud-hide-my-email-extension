@@ -330,8 +330,9 @@ describe("アドレス作成（作成ダイアログの候補と一覧の確認�
     expect(writeText).not.toHaveBeenCalled();
   });
 
-  it("確定時に候補が変わったら、今回のラベル見出しを持つ新しい項目を採用する", async () => {
+  it("確定時に候補が変わった場合は、本物を一意に保証できないため未確認で止める", async () => {
     setBody(hmeManagementMarkup({ candidate: "before-change@icloud.com", label: "example.com" }));
+    const writeText = mockClipboard();
     const dialog = document.getElementById("dialog")!;
     const create = confirmButton();
     create.addEventListener("click", () => {
@@ -339,9 +340,36 @@ describe("アドレス作成（作成ダイアログの候補と一覧の確認�
       appendCreatedItem("after-change@icloud.com", "example.com");
     });
 
-    const result = await createAddress(document, { timeoutMs: 500, pollMs: 5, label: "example.com" });
+    const result = await createAddress(document, { timeoutMs: 80, pollMs: 5, label: "example.com" });
 
-    expect(result).toEqual({ kind: "success", address: "after-change@icloud.com", copied: false, verified: true });
+    expect(result).toMatchObject({ kind: "failed", clicked: true, code: "RESULT_UNKNOWN" });
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
+  it("隠れていた旧一覧が同ラベルで現れても、候補と一致しなければ成功にしない", async () => {
+    setBody(`
+      <section id="old" hidden><button type="button"><h2>example.com</h2><span>existing-private@icloud.com</span></button></section>
+      <section id="form">
+        <h1>新しいメールアドレスを追加</h1>
+        <div id="candidate">candidate-new@icloud.com</div>
+        <input name="hme-label" value="example.com" />
+        <button id="confirm" type="button">メールアドレスを作成</button>
+      </section>
+    `);
+    const writeText = mockClipboard();
+    const old = document.getElementById("old")!;
+    const form = document.getElementById("form")!;
+    const confirm = document.getElementById("confirm") as HTMLButtonElement;
+    // 確定しても新しいアドレスは作らず、隠れていた旧一覧を見えるようにするだけ。
+    confirm.addEventListener("click", () => {
+      form.hidden = true;
+      old.hidden = false;
+    });
+
+    const result = await createAddress(document, { label: "example.com", timeoutMs: 80, pollMs: 5 });
+
+    expect(result).toMatchObject({ kind: "failed", clicked: true, code: "RESULT_UNKNOWN" });
+    expect(writeText).not.toHaveBeenCalled();
   });
 
   it("ラベル見出しの完全一致で照合する（icloud.comが本文に含まれるだけでは不一致）", async () => {

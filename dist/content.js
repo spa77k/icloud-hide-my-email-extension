@@ -531,18 +531,11 @@
           message: errorMessage("CREATE_FAILED")
         };
       if (!isCreateFormOpen(doc, form)) {
-        let items = findAddressItems(doc), candidateMatches = items.filter(
+        let candidateMatches = findAddressItems(doc).filter(
           (item) => item.address === candidateAddress && labelsMatch(item.label, normalizedLabel)
         );
         if (candidateMatches.length === 1 && !beforeAddresses.has(candidateMatches[0].address))
           return { kind: "success", address: candidateMatches[0].address, copied: !1, verified: !0 };
-        if (candidateMatches.length === 0 && normalizedLabel.length > 0) {
-          let newLabelItems = items.filter(
-            (item) => labelsMatch(item.label, normalizedLabel) && !beforeAddresses.has(item.address)
-          );
-          if (newLabelItems.length === 1)
-            return { kind: "success", address: newLabelItems[0].address, copied: !1, verified: !0 };
-        }
       }
       await sleep(pollMs);
     }
