@@ -5,6 +5,7 @@ import {
   clickElement,
   clickableAncestor,
   elementText,
+  findAllByText,
   findLabelInput,
   findByText,
   interactiveDescendants,
@@ -65,14 +66,16 @@ function parentAcrossShadow(element: Element): Element | null {
   return root instanceof ShadowRoot ? root.host : null;
 }
 
-export function extractEmails(doc: Document): string[] {
+export function extractEmails(doc: Document, scope?: Element): string[] {
   const found = new Set<string>();
-  const text = doc.body?.innerText ?? doc.body?.textContent ?? "";
+  const textRoot: Element | null = scope ?? doc.body;
+  const text = (textRoot as HTMLElement | null)?.innerText ?? textRoot?.textContent ?? "";
   for (const match of text.matchAll(ADDRESS_PATTERN)) {
     found.add(match[0].replace(/\s+/g, "").toLowerCase());
   }
 
   for (const element of allElements(doc)) {
+    if (scope && !scope.contains(element)) continue;
     if (!isVisible(element)) continue;
     if (element instanceof HTMLAnchorElement && element.href.startsWith("mailto:")) {
       const address = decodeURIComponent(element.href.slice("mailto:".length)).split("?")[0] ?? "";
@@ -186,11 +189,74 @@ export function openHmeTile(doc: Document): boolean {
   return true;
 }
 
+const CREATE_LABELS = ["メールアドレスを作成", /^create email address$/i] as const;
+
+/**
+ * 確定ボタンを完全一致で探す。部分一致だと見出しや説明文の入った要素を
+ * 押してしまうことがあるため、操作要素自身のテキストが確定ラベルと
+ * 完全に一致するものだけを対象にする。
+ */
 export function findCreateButton(doc: Document): HTMLElement | null {
-  return findByText(doc, ["メールアドレスを作成", /create email address/i], {
+  const candidates = findAllByText(doc, ["メールアドレスを作成", /create email address/i], {
     interactiveOnly: true,
     maxTextLength: 50,
   });
+  for (const element of candidates) {
+    const texts = [
+      normalizeText(elementText(element)),
+      normalizeText((element as HTMLElement).innerText ?? element.textContent ?? ""),
+    ];
+    const matches = texts.some((text) =>
+      CREATE_LABELS.some((label) => (typeof label === "string" ? text === normalizeText(label) : label.test(text))),
+    );
+    if (!matches) continue;
+    const clickable = clickableAncestor(element);
+    return clickable instanceof HTMLElement ? clickable : element;
+  }
+  return null;
+}
+
+/**
+ * 確定ボタンから、そのフォーム（ダイアログ等）の境界を探す。
+ * 候補アドレスの取得と「フォームが閉じたか」の判定に使う。
+ * ダイアログの印が無い場合は、ラベル入力を含む最も近い先祖を使う。
+ */
+function findFormContainer(button: Element): Element | null {
+  let current: Element | null = button;
+  let withInput: Element | null = null;
+  for (let depth = 0; current && depth < 12; depth += 1) {
+    const role = current.getAttribute("role");
+    const tag = current.tagName.toLowerCase();
+    const className = typeof current.className === "string" ? current.className : "";
+    if (
+      role === "dialog" ||
+      current.getAttribute("aria-modal") === "true" ||
+      tag === "dialog" ||
+      tag === "form" ||
+      /dialog|sheet|modal/i.test(className)
+    ) {
+      return current;
+    }
+    if (!withInput && current.querySelector("input:not([type='hidden']), textarea")) {
+      withInput = current;
+    }
+    current = parentAcrossShadow(current);
+  }
+  return withInput;
+}
+
+/**
+ * 作成フォームがまだ開いているか。
+ * 確定ボタンが残っていれば開いている扱い。フォーム境界がDOMから外れたか
+ * 非表示になっていれば閉じた扱いにする。境界が取れない場合はラベル欄で判断する。
+ */
+function isCreateFormOpen(doc: Document, form: Element | null): boolean {
+  if (findCreateButton(doc)) return true;
+  if (form) {
+    if (!form.isConnected || !isVisible(form)) return false;
+    return Boolean(findLabelInput(doc));
+  }
+  return Boolean(findLabelInput(doc));
 }
 
 function findOpenAddressButton(doc: Document): HTMLElement | null {
@@ -367,6 +433,8 @@ export async function createAddress(doc: Document, options: AutomationOptions = 
   }
 
   const before = new Set(extractEmails(doc));
+  const form = findFormContainer(clickableButton);
+  const candidate = form ? extractEmails(doc, form) : [];
   options.onClick?.();
   try {
     clickElement(clickableButton);
@@ -389,11 +457,21 @@ export async function createAddress(doc: Document, options: AutomationOptions = 
       };
     }
 
-    const fresh = extractEmails(doc).filter((address) => !before.has(address));
-    if (fresh.length > 0) {
-      const address = fresh[0]!;
-      const copied = await copyText(address);
-      return { kind: "success", address, copied };
+    // フォームが開いている間に出たアドレスは候補の生成・再生成の可能性がある。
+    // 確定前に成功扱いしないため、フォームが閉じてからだけ成功を判定する。
+    if (!isCreateFormOpen(doc, form)) {
+      const current = extractEmails(doc);
+      const confirmed = candidate.find((address) => current.includes(address));
+      if (confirmed) {
+        const copied = await copyText(confirmed);
+        return { kind: "success", address: confirmed, copied };
+      }
+      const fresh = current.filter((address) => !before.has(address));
+      if (fresh.length > 0) {
+        const address = fresh[0]!;
+        const copied = await copyText(address);
+        return { kind: "success", address, copied };
+      }
     }
     await sleep(pollMs);
   }

@@ -114,48 +114,171 @@ describe("作成前の準備", () => {
   });
 });
 
+// 実機のHMEダイアログに近い構造。候補アドレスが確定前に表示され、
+// 「別のメールアドレスを使用」は候補の再生成だけ、確定ボタンで作成済みになる。
+function hmeDialogMarkup(options: { candidate?: string; existing?: string[] } = {}): string {
+  const existing = (options.existing ?? []).map((address) => `<li class="address-item">${address}</li>`).join("");
+  return `
+    <h1>メールを非公開</h1>
+    <p>7件の有効なメールアドレス</p>
+    <ul id="addresses">${existing}</ul>
+    <section role="dialog" aria-modal="true" id="dialog">
+      <h2>新しいメールアドレスを追加</h2>
+      <div id="candidate" class="candidate-address">${options.candidate ?? ""}</div>
+      <button id="regenerate" type="button">別のメールアドレスを使用</button>
+      <label aria-hidden="true">アドレスにラベルを追加（例：買い物）</label>
+      <input id="label" type="text" name="hme-label" />
+      <textarea id="memo" placeholder="メモ（任意）"></textarea>
+      <button id="back" type="button">戻る</button>
+      <button id="create" type="button">メールアドレスを作成</button>
+    </section>
+  `;
+}
+
+function appendCreatedAddress(address: string): void {
+  const item = document.createElement("li");
+  item.className = "address-item";
+  item.textContent = address;
+  document.getElementById("addresses")!.appendChild(item);
+}
+
 describe("アドレス作成", () => {
-  it("作成ボタンを1回押し、新しいアドレスをコピーする", async () => {
-    setBody(`
-      <h1>メールを非公開</h1>
-      <label>ラベル <input id="label" type="text" value="example.com" /></label>
-      <button id="create">メールアドレスを作成</button>
-    `);
+  it("候補の表示→確定1回→フォームが閉じて同じ候補が一覧に出たらコピーする", async () => {
+    setBody(hmeDialogMarkup({ candidate: "candidate-one@icloud.com" }));
     const writeText = mockClipboard();
-    const clickSpy = vi.fn();
-    const button = document.getElementById("create")!;
-    button.addEventListener("click", () => {
-      clickSpy();
-      setTimeout(() => {
-        const address = document.createElement("div");
-        address.textContent = "sample-address@icloud.com";
-        document.body.appendChild(address);
-      }, 5);
+    const dialog = document.getElementById("dialog")!;
+    const candidate = document.getElementById("candidate")!;
+    const create = document.getElementById("create")!;
+    const createClicks = vi.fn();
+    create.addEventListener("click", () => {
+      createClicks();
+      const address = candidate.textContent ?? "";
+      dialog.remove();
+      appendCreatedAddress(address);
     });
 
     const result = await createAddress(document, { timeoutMs: 500, pollMs: 5 });
 
-    expect(result).toEqual({ kind: "success", address: "sample-address@icloud.com", copied: true });
-    expect(clickSpy).toHaveBeenCalledTimes(1);
-    expect(writeText).toHaveBeenCalledWith("sample-address@icloud.com");
+    expect(result).toEqual({ kind: "success", address: "candidate-one@icloud.com", copied: true });
+    expect(createClicks).toHaveBeenCalledTimes(1);
+    expect(writeText).toHaveBeenCalledWith("candidate-one@icloud.com");
   });
 
-  it("作成失敗の表示を検出し、再試行しない", async () => {
-    setBody(`
-      <h1>メールを非公開</h1>
-      <label>ラベル <input id="label" type="text" value="example.com" /></label>
-      <button id="create">メールアドレスを作成</button>
-    `);
-    const clickSpy = vi.fn();
-    const button = document.getElementById("create")!;
-    button.addEventListener("click", () => {
-      clickSpy();
+  it("確定前に候補が生成されても成功扱いしない", async () => {
+    setBody(hmeDialogMarkup());
+    const writeText = mockClipboard();
+    const create = document.getElementById("create")!;
+    create.addEventListener("click", () => {
+      // 確定は効かずフォームは開いたまま。あとから候補だけが表示される。
       setTimeout(() => {
-        const alert = document.createElement("div");
-        alert.setAttribute("role", "alert");
-        alert.textContent = "メールアドレスを作成できませんでした。";
-        document.body.appendChild(alert);
-      }, 5);
+        document.getElementById("candidate")!.textContent = "late-candidate@icloud.com";
+      }, 20);
+    });
+
+    const result = await createAddress(document, { timeoutMs: 200, pollMs: 5 });
+
+    expect(result).toMatchObject({ kind: "failed", clicked: true, code: "RESULT_UNKNOWN" });
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
+  it("確定前に候補が再生成されても成功扱いしない", async () => {
+    setBody(hmeDialogMarkup({ candidate: "candidate-a@icloud.com" }));
+    const writeText = mockClipboard();
+    const create = document.getElementById("create")!;
+    create.addEventListener("click", () => {
+      setTimeout(() => {
+        document.getElementById("candidate")!.textContent = "candidate-b@icloud.com";
+      }, 20);
+    });
+
+    const result = await createAddress(document, { timeoutMs: 200, pollMs: 5 });
+
+    expect(result).toMatchObject({ kind: "failed", clicked: true, code: "RESULT_UNKNOWN" });
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
+  it("フォームが閉じて新しいアドレスが出たら、そのアドレスをコピーする", async () => {
+    setBody(hmeDialogMarkup());
+    const writeText = mockClipboard();
+    const dialog = document.getElementById("dialog")!;
+    const create = document.getElementById("create")!;
+    create.addEventListener("click", () => {
+      dialog.remove();
+      appendCreatedAddress("generated-one@icloud.com");
+    });
+
+    const result = await createAddress(document, { timeoutMs: 500, pollMs: 5 });
+
+    expect(result).toEqual({ kind: "success", address: "generated-one@icloud.com", copied: true });
+    expect(writeText).toHaveBeenCalledWith("generated-one@icloud.com");
+  });
+
+  it("確定時に候補が別のアドレスへ変わったら、作成された方を使う", async () => {
+    setBody(hmeDialogMarkup({ candidate: "before-change@icloud.com" }));
+    const writeText = mockClipboard();
+    const dialog = document.getElementById("dialog")!;
+    const create = document.getElementById("create")!;
+    create.addEventListener("click", () => {
+      dialog.remove();
+      appendCreatedAddress("after-change@icloud.com");
+    });
+
+    const result = await createAddress(document, { timeoutMs: 500, pollMs: 5 });
+
+    expect(result).toEqual({ kind: "success", address: "after-change@icloud.com", copied: true });
+    expect(writeText).toHaveBeenCalledWith("after-change@icloud.com");
+  });
+
+  it("既存アドレスがあっても、確定した候補のアドレスをコピーする", async () => {
+    setBody(hmeDialogMarkup({ candidate: "candidate-two@icloud.com", existing: ["existing-one@icloud.com"] }));
+    const writeText = mockClipboard();
+    const dialog = document.getElementById("dialog")!;
+    const candidate = document.getElementById("candidate")!;
+    const create = document.getElementById("create")!;
+    create.addEventListener("click", () => {
+      const address = candidate.textContent ?? "";
+      dialog.remove();
+      appendCreatedAddress(address);
+    });
+
+    const result = await createAddress(document, { timeoutMs: 500, pollMs: 5 });
+
+    expect(result).toEqual({ kind: "success", address: "candidate-two@icloud.com", copied: true });
+    expect(writeText).toHaveBeenCalledWith("candidate-two@icloud.com");
+  });
+
+  it("確定ボタンにaria-labelが付いていても、表示テキストが一致すれば押す", async () => {
+    setBody(
+      hmeDialogMarkup({ candidate: "aria-candidate@icloud.com" }).replace(
+        '<button id="create" type="button">メールアドレスを作成</button>',
+        '<button id="create" type="button" aria-label="作成">メールアドレスを作成</button>',
+      ),
+    );
+    const dialog = document.getElementById("dialog")!;
+    const candidate = document.getElementById("candidate")!;
+    const create = document.getElementById("create")!;
+    create.addEventListener("click", () => {
+      const address = candidate.textContent ?? "";
+      dialog.remove();
+      appendCreatedAddress(address);
+    });
+
+    const result = await createAddress(document, { timeoutMs: 500, pollMs: 5 });
+
+    expect(result).toEqual({ kind: "success", address: "aria-candidate@icloud.com", copied: true });
+  });
+
+  it("作成失敗の表示を検出し、再試行せず、コピーしない", async () => {
+    setBody(hmeDialogMarkup({ candidate: "candidate@icloud.com" }));
+    const writeText = mockClipboard();
+    const clickSpy = vi.fn();
+    const create = document.getElementById("create")!;
+    create.addEventListener("click", () => {
+      clickSpy();
+      const alert = document.createElement("div");
+      alert.setAttribute("role", "alert");
+      alert.textContent = "メールアドレスを作成できませんでした。";
+      document.body.appendChild(alert);
     });
 
     const result = await createAddress(document, { timeoutMs: 500, pollMs: 5 });
@@ -166,12 +289,24 @@ describe("アドレス作成", () => {
       expect(result.code).toBe("CREATE_FAILED");
     }
     expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(writeText).not.toHaveBeenCalled();
   });
 
-  it("作成ボタンが無ければ、クリックせずに失敗を返す", async () => {
+  it("確定ボタンが無ければ、クリックせずに失敗を返す", async () => {
     setBody("<h1>メールを非公開</h1>");
     const result = await createAddress(document, { timeoutMs: 100, pollMs: 5 });
     expect(result).toMatchObject({ kind: "failed", clicked: false, code: "UI_NOT_FOUND" });
+  });
+
+  it("確定ラベルと部分一致するだけのボタンは押さない", async () => {
+    setBody("<h1>メールを非公開</h1><button id='fake' type='button'>メールアドレスを作成のヘルプ</button>");
+    const fakeClick = vi.fn();
+    document.getElementById("fake")!.addEventListener("click", fakeClick);
+
+    const result = await createAddress(document, { timeoutMs: 100, pollMs: 5 });
+
+    expect(result).toMatchObject({ kind: "failed", clicked: false, code: "UI_NOT_FOUND" });
+    expect(fakeClick).not.toHaveBeenCalled();
   });
 });
 

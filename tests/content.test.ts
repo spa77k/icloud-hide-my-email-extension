@@ -56,18 +56,26 @@ describe("コンテンツ側の重複防止", () => {
   it("CREATEを2回受信しても、作成ボタンは1回だけ押す", async () => {
     document.body.innerHTML = `
       <h1>メールを非公開</h1>
-      <label>ラベル <input id="label" type="text" /></label>
-      <button id="create">メールアドレスを作成</button>
+      <ul id="addresses"></ul>
+      <section role="dialog" aria-modal="true" id="dialog">
+        <h2>新しいメールアドレスを追加</h2>
+        <div id="candidate">dedupe-check@icloud.com</div>
+        <label aria-hidden="true">アドレスにラベルを追加（例：買い物）</label>
+        <input id="label" type="text" name="hme-label" />
+        <button id="create" type="button">メールアドレスを作成</button>
+      </section>
     `;
     const createClick = vi.fn();
+    const dialog = document.getElementById("dialog")!;
+    const candidate = document.getElementById("candidate")!;
     const button = document.getElementById("create")!;
     button.addEventListener("click", () => {
       createClick();
-      setTimeout(() => {
-        const address = document.createElement("div");
-        address.textContent = "dedupe-check@icloud.com";
-        document.body.appendChild(address);
-      }, 5);
+      const address = candidate.textContent ?? "";
+      dialog.remove();
+      const item = document.createElement("li");
+      item.textContent = address;
+      document.getElementById("addresses")!.appendChild(item);
     });
 
     const prepared = await send({ type: "PREPARE", jobId: "job-1", label: "example.com" });

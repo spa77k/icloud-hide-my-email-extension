@@ -88,6 +88,7 @@ function topPage(currentMode) {
 }
 
 function hmePage(currentMode) {
+  const existing = Array.from({ length: 7 }, (_, index) => `<li class="address-item">existing-${index + 1}@icloud.com</li>`).join("");
   return `<!doctype html>
 <html lang="ja">
 <head><meta charset="utf-8"><title>メールを非公開</title>${styles}</head>
@@ -96,22 +97,45 @@ function hmePage(currentMode) {
   <p id="count">7件の有効なメールアドレス</p>
   <button id="add" aria-label="追加">＋</button>
   <button id="close-hme" aria-label="閉じる">閉じる</button>
+  <ul id="addresses">${existing}</ul>
   <section id="dialog" role="dialog" aria-modal="true" hidden>
-    <label>ラベル <input id="label" type="text" /></label>
-    <button id="create">メールアドレスを作成</button>
+    <h2>新しいメールアドレスを追加</h2>
+    <div id="candidate" class="candidate-address"></div>
+    <button id="regenerate" type="button">別のメールアドレスを使用</button>
+    <label aria-hidden="true">アドレスにラベルを追加（例：買い物）</label>
+    <input id="label" type="text" name="hme-label" />
+    <textarea id="memo" placeholder="メモ（任意）"></textarea>
+    <button id="back" type="button">戻る</button>
+    <button id="create" type="button">メールアドレスを作成</button>
     <div id="error" role="alert" hidden></div>
   </section>
-  <div id="addresses"></div>
   <script>
     const mode = ${JSON.stringify(currentMode)};
     window.__createCalls = 0;
+    window.__regenerateCalls = 0;
+    window.__address = "";
     const dialog = document.getElementById("dialog");
+    const candidate = document.getElementById("candidate");
     const label = document.getElementById("label");
     const create = document.getElementById("create");
+    const regenerate = document.getElementById("regenerate");
     const error = document.getElementById("error");
+    let candidateSeq = 0;
+    function nextCandidate() {
+      candidateSeq += 1;
+      return "mock-candidate-" + candidateSeq + "@icloud.com";
+    }
     document.getElementById("add").addEventListener("click", () => {
+      window.__address = nextCandidate();
+      candidate.textContent = window.__address;
       dialog.hidden = false;
       label.focus();
+    });
+    regenerate.addEventListener("click", () => {
+      // 候補を変えるだけで、作成済みにはしない。
+      window.__regenerateCalls += 1;
+      window.__address = nextCandidate();
+      candidate.textContent = window.__address;
     });
     create.addEventListener("click", () => {
       window.__createCalls += 1;
@@ -120,15 +144,14 @@ function hmePage(currentMode) {
         error.textContent = "メールアドレスを作成できませんでした。";
         return;
       }
-      create.disabled = true;
-      setTimeout(() => {
-        const address = "mock-" + Date.now().toString(36) + "-" + window.__createCalls + "@icloud.com";
-        window.__address = address;
-        const created = document.createElement("div");
-        created.id = "new-address";
-        created.textContent = address;
-        document.getElementById("addresses").appendChild(created);
-      }, 500);
+      dialog.hidden = true;
+      const address = window.__address || candidate.textContent || "";
+      window.__address = address;
+      const created = document.createElement("li");
+      created.className = "address-item";
+      created.id = "new-address";
+      created.textContent = address;
+      document.getElementById("addresses").appendChild(created);
     });
   </script>
 </body>

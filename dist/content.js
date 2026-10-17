@@ -202,12 +202,12 @@
     let root = element.getRootNode();
     return root instanceof ShadowRoot ? root.host : null;
   }
-  function extractEmails(doc) {
-    let found = /* @__PURE__ */ new Set(), text = doc.body?.innerText ?? doc.body?.textContent ?? "";
+  function extractEmails(doc, scope) {
+    let found = /* @__PURE__ */ new Set(), textRoot = scope ?? doc.body, text = textRoot?.innerText ?? textRoot?.textContent ?? "";
     for (let match of text.matchAll(ADDRESS_PATTERN))
       found.add(match[0].replace(/\s+/g, "").toLowerCase());
     for (let element of allElements(doc))
-      if (isVisible(element)) {
+      if (!(scope && !scope.contains(element)) && isVisible(element)) {
         if (element instanceof HTMLAnchorElement && element.href.startsWith("mailto:")) {
           let address = decodeURIComponent(element.href.slice(7)).split("?")[0] ?? "";
           ADDRESS_PATTERN.test(address) && found.add(address.trim().toLowerCase()), ADDRESS_PATTERN.lastIndex = 0;
@@ -266,11 +266,36 @@
     let ancestor = clickableAncestor(title);
     return !isInteractive(ancestor) || isDisabled(ancestor) ? !1 : (clickElement(ancestor), !0);
   }
+  var CREATE_LABELS = ["\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9\u3092\u4F5C\u6210", /^create email address$/i];
   function findCreateButton(doc) {
-    return findByText(doc, ["\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9\u3092\u4F5C\u6210", /create email address/i], {
+    let candidates = findAllByText(doc, ["\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9\u3092\u4F5C\u6210", /create email address/i], {
       interactiveOnly: !0,
       maxTextLength: 50
     });
+    for (let element of candidates) {
+      if (![
+        normalizeText(elementText(element)),
+        normalizeText(element.innerText ?? element.textContent ?? "")
+      ].some(
+        (text) => CREATE_LABELS.some((label) => typeof label == "string" ? text === normalizeText(label) : label.test(text))
+      )) continue;
+      let clickable = clickableAncestor(element);
+      return clickable instanceof HTMLElement ? clickable : element;
+    }
+    return null;
+  }
+  function findFormContainer(button) {
+    let current = button, withInput = null;
+    for (let depth = 0; current && depth < 12; depth += 1) {
+      let role = current.getAttribute("role"), tag = current.tagName.toLowerCase(), className = typeof current.className == "string" ? current.className : "";
+      if (role === "dialog" || current.getAttribute("aria-modal") === "true" || tag === "dialog" || tag === "form" || /dialog|sheet|modal/i.test(className))
+        return current;
+      !withInput && current.querySelector("input:not([type='hidden']), textarea") && (withInput = current), current = parentAcrossShadow(current);
+    }
+    return withInput;
+  }
+  function isCreateFormOpen(doc, form) {
+    return findCreateButton(doc) ? !0 : form ? !form.isConnected || !isVisible(form) ? !1 : !!findLabelInput(doc) : !!findLabelInput(doc);
   }
   function findOpenAddressButton(doc) {
     let newAddress = findByText(doc, ["\u65B0\u3057\u3044\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9\u3092\u8A2D\u5B9A", /set up a new email address/i], {
@@ -377,8 +402,8 @@
     if (isDisabled(button)) {
       let enabled = await waitFor(
         () => {
-          let candidate = findCreateButton(doc);
-          return candidate && !isDisabled(candidate) ? candidate : null;
+          let candidate2 = findCreateButton(doc);
+          return candidate2 && !isDisabled(candidate2) ? candidate2 : null;
         },
         1500,
         100
@@ -387,7 +412,7 @@
         return { kind: "failed", clicked: !1, code: "CREATE_FAILED", message: errorMessage("CREATE_FAILED") };
       clickableButton = enabled;
     }
-    let before = new Set(extractEmails(doc));
+    let before = new Set(extractEmails(doc)), form = findFormContainer(clickableButton), candidate = form ? extractEmails(doc, form) : [];
     options.onClick?.();
     try {
       clickElement(clickableButton);
@@ -403,10 +428,17 @@
           code: "CREATE_FAILED",
           message: errorMessage("CREATE_FAILED")
         };
-      let fresh = extractEmails(doc).filter((address) => !before.has(address));
-      if (fresh.length > 0) {
-        let address = fresh[0], copied = await copyText(address);
-        return { kind: "success", address, copied };
+      if (!isCreateFormOpen(doc, form)) {
+        let current = extractEmails(doc), confirmed = candidate.find((address) => current.includes(address));
+        if (confirmed) {
+          let copied = await copyText(confirmed);
+          return { kind: "success", address: confirmed, copied };
+        }
+        let fresh = current.filter((address) => !before.has(address));
+        if (fresh.length > 0) {
+          let address = fresh[0], copied = await copyText(address);
+          return { kind: "success", address, copied };
+        }
       }
       await sleep(pollMs);
     }

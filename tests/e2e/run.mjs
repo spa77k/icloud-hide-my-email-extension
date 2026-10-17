@@ -139,6 +139,10 @@ try {
   const firstFrame = await currentHmeFrame();
   const firstCalls = await firstFrame.evaluate(() => window.__createCalls);
   assert(firstCalls === 1, `create button was pressed ${firstCalls} times`);
+  const firstCandidate = await firstFrame.evaluate(() => window.__address);
+  const regenerateCalls = await firstFrame.evaluate(() => window.__regenerateCalls);
+  assert(firstCandidate === firstAddress, `popup address ${firstAddress} did not match the mock candidate ${firstCandidate}`);
+  assert(regenerateCalls === 0, `regenerate button was pressed ${regenerateCalls} times`);
   const icloudPage = context.pages().find((candidate) => candidate.url().startsWith(`${baseUrl}/icloudplus`));
   assert(icloudPage, "iCloud mock tab was not found for tile checks");
   const tileClicks = await icloudPage.evaluate(() => window.__tileClicks);
@@ -153,6 +157,8 @@ try {
     createCalls: firstCalls,
     tileClicks,
     otherTileClicks,
+    regenerateCalls,
+    candidateMatched: firstCandidate === firstAddress,
     copied: firstState.copied,
   });
 
