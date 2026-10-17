@@ -101,17 +101,19 @@ function hmePage(currentMode) {
 <html lang="ja">
 <head><meta charset="utf-8"><title>メールを非公開</title>${styles}</head>
 <body>
-  <h1>メールを非公開</h1>
-  <p id="count">7件の有効なメールアドレス</p>
-  <button id="add" aria-label="追加">＋</button>
-  <button id="close-hme" aria-label="閉じる">閉じる</button>
-  <ul id="addresses">${existing}</ul>
-  <section id="forwarding-section">
-    <h2>転送先：</h2>
-    <label><input type="radio" name="forward" checked /> <span id="forward-value">forward-user@icloud.com （主要メールアドレス）</span></label>
+  <section id="list-view">
+    <h1>メールを非公開</h1>
+    <p id="count">7件の有効なメールアドレス</p>
+    <button id="add" aria-label="追加">＋</button>
+    <button id="close-hme" aria-label="閉じる">閉じる</button>
+    <ul id="addresses">${existing}</ul>
+    <section id="forwarding-section">
+      <h2>転送先：</h2>
+      <label><input type="radio" name="forward" checked /> <span id="forward-value">forward-user@icloud.com （主要メールアドレス）</span></label>
+    </section>
+    <div id="account">account-user@icloud.com</div>
+    <div id="hidden-address" hidden>hidden-user@icloud.com</div>
   </section>
-  <div id="account">account-user@icloud.com</div>
-  <div id="hidden-address" hidden>hidden-user@icloud.com</div>
   <section id="dialog" role="dialog" aria-modal="true" hidden>
     <ui-panel>
       <h2>新しいメールアドレスを追加</h2>
@@ -129,6 +131,8 @@ function hmePage(currentMode) {
     const mode = ${JSON.stringify(currentMode)};
     window.__createCalls = 0;
     window.__regenerateCalls = 0;
+    window.__backCalls = 0;
+    window.__deactivateCalls = 0;
     window.__address = "";
     const dialog = document.getElementById("dialog");
     const candidate = document.getElementById("candidate");
@@ -171,6 +175,7 @@ function hmePage(currentMode) {
     function showEmailDetail() {
       // 実機の作成済み詳細画面（.EmailDetail）に近い構造。一覧には戻らない。
       dialog.hidden = true;
+      document.getElementById("list-view").hidden = true;
       const address = window.__address || candidate.textContent || "";
       window.__address = address;
       const detail = document.createElement("section");
@@ -178,6 +183,7 @@ function hmePage(currentMode) {
       detail.innerHTML =
         '<h1 class="Typography PanelTitle-title modal-title"></h1>' +
         '<input name="hme-label" />' +
+        '<textarea name="hme-note"></textarea>' +
         '<div class="EmailDetail-details">' +
         '<div class="EmailDetail-detailsRow"><div class="LabeledField EmailDetail-hmeField">' +
         '<label class="Typography LabeledField-label">メールを非公開：</label>' +
@@ -186,11 +192,27 @@ function hmePage(currentMode) {
         '<div class="EmailDetail-detailsRow"><div class="LabeledField EmailDetail-forwardToField">' +
         '<label class="Typography LabeledField-label">転送先：</label>' +
         '<p class="Typography LabeledField-value">forwarding-owner@icloud.com</p></div></div>' +
-        '</div>';
+        '</div>' +
+        '<button class="button button-secondary detail-deactivate" type="button">メールアドレスを無効化</button>';
       detail.querySelector(".modal-title").textContent = label.value || "example.com";
       detail.querySelector("input[name='hme-label']").value = label.value || "example.com";
       detail.querySelector(".EmailDetail-hmeField .LabeledField-value").textContent = address;
+      detail.querySelector(".detail-deactivate").addEventListener("click", () => {
+        window.__deactivateCalls += 1;
+      });
+      const back = document.createElement("button");
+      back.id = "detail-back";
+      back.type = "button";
+      back.textContent = "戻る";
+      back.addEventListener("click", () => {
+        // 読み取り専用の戻る: 詳細を閉じて管理一覧に戻すだけ。確定・無効化は押さない。
+        window.__backCalls += 1;
+        detail.remove();
+        back.remove();
+        document.getElementById("list-view").hidden = false;
+      });
       document.body.appendChild(detail);
+      document.body.appendChild(back);
     }
     create.addEventListener("click", () => {
       window.__createCalls += 1;

@@ -279,6 +279,13 @@ export function findEmailDetails(doc: Document): EmailDetailMatch[] {
   return details;
 }
 
+function findVisibleEmailDetailElement(doc: Document): HTMLElement | null {
+  for (const element of allElements(doc)) {
+    if (element.classList.contains("EmailDetail") && isVisible(element)) return element;
+  }
+  return null;
+}
+
 export function hasHmeControls(doc: Document): boolean {
   if (findCreateButton(doc)) return true;
   if (
@@ -525,6 +532,22 @@ async function prepareInsideHme(
   label: string,
   options: Required<Pick<AutomationOptions, "timeoutMs" | "pollMs">>,
 ): Promise<PrepareOutcome> {
+  // 作成済み詳細画面から新規作成を始める場合は、読み取り専用の「戻る」で管理一覧に
+  // 戻る。確定・無効化・削除・再作成は押さない。この準備1回につき高々1回押し、
+  // 成否にかかわらずこの呼び出しの終了で記録は残さない（次の新ジョブでも戻れる）。
+  const detailElement = findVisibleEmailDetailElement(doc);
+  if (detailElement) {
+    const back = findByText(doc, ["戻る", /^back$/i], { interactiveOnly: true, maxTextLength: 20 });
+    if (back) {
+      clickElement(back);
+      await waitFor(
+        () => (!findVisibleEmailDetailElement(doc) && (findOpenAddressButton(doc) ?? findCreateButton(doc))) || null,
+        options.timeoutMs,
+        options.pollMs,
+      ).catch(() => null);
+    }
+  }
+
   if (findCreateButton(doc) && findLabelInput(doc)) {
     await fillLabel(doc, label, options);
     return { kind: "ready" };

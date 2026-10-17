@@ -114,6 +114,71 @@ describe("作成前の準備", () => {
       prepareAddress(document, "example.com", { isTopFrame: false, timeoutMs: 100, pollMs: 5 }),
     ).rejects.toMatchObject({ code: "NETWORK" });
   });
+
+  it("同じ詳細DOMを hidden/visible で使い回しても、新ジョブごとに「戻る」で一覧に戻れる", async () => {
+    setBody(`
+      <section id="list-view" hidden>
+        <p>7件の有効なメールアドレス</p>
+        <button id="add" aria-label="追加">＋</button>
+        <ul id="addresses"></ul>
+      </section>
+      <button id="detail-back" type="button">戻る</button>
+      <section id="detail" class="Panel EmailDetail" hidden>
+        <h1 class="Typography PanelTitle-title modal-title">first.example</h1>
+        <input name="hme-label" value="first.example" />
+        <textarea name="hme-note"></textarea>
+        <div class="EmailDetail-details">
+          <div class="EmailDetail-detailsRow">
+            <div class="LabeledField EmailDetail-hmeField"><label>メールを非公開：</label><p class="LabeledField-value">first-alias@icloud.com</p></div>
+          </div>
+          <div class="EmailDetail-detailsRow">
+            <div class="LabeledField EmailDetail-forwardToField"><label>転送先：</label><p class="LabeledField-value">forwarding-owner@icloud.com</p></div>
+          </div>
+        </div>
+        <button type="button">メールアドレスをコピー</button>
+        <button id="deactivate" type="button">メールアドレスを無効化</button>
+      </section>
+      <section id="dialog" hidden>
+        <h2>新しいメールアドレスを追加</h2>
+        <div id="candidate">second-candidate@icloud.com</div>
+        <input id="new-label" name="hme-label" value="" />
+        <button id="create" type="button">メールアドレスを作成</button>
+      </section>
+    `);
+    const listView = document.getElementById("list-view")!;
+    const detail = document.getElementById("detail")!;
+    const dialog = document.getElementById("dialog")!;
+    const add = document.getElementById("add")!;
+    const backClick = vi.fn();
+    const deactivateClick = vi.fn();
+    document.getElementById("detail-back")!.addEventListener("click", () => {
+      backClick();
+      // 読み取り専用の戻る: 同じ詳細要素を隠して一覧を見せるだけ。
+      detail.hidden = true;
+      listView.hidden = false;
+    });
+    add.addEventListener("click", () => {
+      listView.hidden = true;
+      dialog.hidden = false;
+    });
+    document.getElementById("deactivate")!.addEventListener("click", deactivateClick);
+
+    // 1件目: 詳細画面から戻って準備。
+    detail.hidden = false;
+    const first = await prepareAddress(document, "second.example", { isTopFrame: false, timeoutMs: 300, pollMs: 5 });
+    expect(first).toEqual({ kind: "ready" });
+    expect(backClick).toHaveBeenCalledTimes(1);
+    expect((document.getElementById("new-label") as HTMLInputElement).value).toBe("second.example");
+
+    // 2件目: 同じ詳細要素を再び見せても、新ジョブとして「戻る」から準備できる。
+    dialog.hidden = true;
+    detail.hidden = false;
+    const second = await prepareAddress(document, "third.example", { isTopFrame: false, timeoutMs: 300, pollMs: 5 });
+    expect(second).toEqual({ kind: "ready" });
+    expect(backClick).toHaveBeenCalledTimes(2);
+    expect((document.getElementById("new-label") as HTMLInputElement).value).toBe("third.example");
+    expect(deactivateClick).not.toHaveBeenCalled();
+  });
 });
 
 interface ExistingItem {

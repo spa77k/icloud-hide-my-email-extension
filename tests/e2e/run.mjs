@@ -427,35 +427,70 @@ try {
   });
 
   // 一覧に戻らず、作成済み詳細画面（.EmailDetail）へ切り替わる場合。
+  // さらに、その詳細画面から「戻る」で一覧に戻り、3件目まで連続作成する（reload/gotoなし）。
   await setMode("detail");
   await icloudPageInstance.reload();
   await popup.bringToFront();
   await clickCreate();
-  const detailAddress = await waitForResult();
+  const detailFirst = await waitForResult();
   await waitForCopied();
   assert(
-    /^mock-candidate-\d+@icloud\.com$/.test(detailAddress),
-    `detail address was not the candidate: ${detailAddress}`,
+    /^mock-candidate-\d+@icloud\.com$/.test(detailFirst),
+    `detail address was not the candidate: ${detailFirst}`,
   );
-  assert(!detailAddress.includes("forwarding-owner"), "detail returned the forwarding address");
+  assert(!detailFirst.includes("forwarding-owner"), "detail returned the forwarding address");
+
+  // 2回目: 同じ詳細画面から「戻る」で一覧に戻り、追加→ラベル→確定へ進む。
+  await popup.bringToFront();
+  await clickCreate();
+  const detailSecond = await waitForResult();
+  await waitForCopied();
+  assert(detailSecond !== detailFirst, `second detail address was the same: ${detailSecond}`);
+  assert(!detailSecond.includes("forwarding-owner"), "second detail returned the forwarding address");
+
+  // 3回目: 同様にもう1件。戻るは合計2回。
+  await popup.bringToFront();
+  await clickCreate();
+  const detailThird = await waitForResult();
+  await waitForCopied();
+  assert(detailThird !== detailSecond && detailThird !== detailFirst, `third detail address was a duplicate: ${detailThird}`);
+  assert(!detailThird.includes("forwarding-owner"), "third detail returned the forwarding address");
+
   const detailFrame = await currentHmeFrame();
+  const detailCounters = await detailFrame.evaluate(() => ({
+    back: window.__backCalls,
+    create: window.__createCalls,
+    deactivate: window.__deactivateCalls,
+  }));
+  assert(detailCounters.back === 2, `detail back was pressed ${detailCounters.back} times`);
+  assert(detailCounters.create === 3, `confirm was pressed ${detailCounters.create} times in detail mode`);
+  assert(detailCounters.deactivate === 0, `deactivate was pressed ${detailCounters.deactivate} times`);
   const detailValues = await detailFrame.evaluate(() => ({
     hme: document.querySelector(".EmailDetail-hmeField .LabeledField-value")?.textContent ?? "",
     forward: document.querySelector(".EmailDetail-forwardToField .LabeledField-value")?.textContent ?? "",
     label: document.querySelector(".EmailDetail .modal-title")?.textContent ?? "",
   }));
   const detailClipboard = await readClipboard();
-  assert(detailValues.hme === detailAddress, "detail hmeField did not match the returned address");
+  const detailTabs = await getTabs();
+  const icloudDetail = icloudTabs(detailTabs)[0];
+  assert(detailValues.hme === detailThird, "detail hmeField did not match the third created address");
   assert(detailValues.forward === "forwarding-owner@icloud.com", "forward decoy was not present in the detail");
   assert(detailValues.label === "example.com", "detail label did not match the job label");
-  assert(detailClipboard === detailAddress, "detail clipboard did not match the created address");
+  assert(detailClipboard === detailThird, "detail clipboard did not match the third created address");
+  assert(icloudDetail?.active === false, "iCloud tab became active during detail creation");
   results.push({
-    scenario: "作成済み詳細画面（一覧に戻らない）",
-    addressShown: true,
-    hmeFieldMatched: detailValues.hme === detailAddress,
-    notForwarding: !detailAddress.includes("forwarding-owner"),
+    scenario: "作成済み詳細画面から3件連続作成（一覧に戻る）",
+    firstAddress: detailFirst,
+    secondAddress: detailSecond,
+    thirdAddress: detailThird,
+    backCalls: detailCounters.back,
+    createCalls: detailCounters.create,
+    deactivateCalls: detailCounters.deactivate,
+    hmeFieldMatched: detailValues.hme === detailThird,
+    notForwarding: !detailThird.includes("forwarding-owner"),
     labelMatched: detailValues.label === "example.com",
-    clipboardMatched: detailClipboard === detailAddress,
+    clipboardMatched: detailClipboard === detailThird,
+    icloudActive: icloudDetail?.active === true,
     copied: true,
   });
 

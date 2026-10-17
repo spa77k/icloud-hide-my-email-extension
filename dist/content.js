@@ -330,6 +330,11 @@
     }
     return details;
   }
+  function findVisibleEmailDetailElement(doc) {
+    for (let element of allElements(doc))
+      if (element.classList.contains("EmailDetail") && isVisible(element)) return element;
+    return null;
+  }
   function hasHmeControls(doc) {
     return findCreateButton(doc) || findByText(doc, ["\u65B0\u3057\u3044\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9\u3092\u8A2D\u5B9A", /set up a new email address/i], {
       maxTextLength: 80
@@ -476,6 +481,14 @@
     });
   }
   async function prepareInsideHme(doc, label, options) {
+    if (findVisibleEmailDetailElement(doc)) {
+      let back = findByText(doc, ["\u623B\u308B", /^back$/i], { interactiveOnly: !0, maxTextLength: 20 });
+      back && (clickElement(back), await waitFor(
+        () => !findVisibleEmailDetailElement(doc) && (findOpenAddressButton(doc) ?? findCreateButton(doc)) || null,
+        options.timeoutMs,
+        options.pollMs
+      ).catch(() => null));
+    }
     if (findCreateButton(doc) && findLabelInput(doc))
       return await fillLabel(doc, label, options), { kind: "ready" };
     let opener = findOpenAddressButton(doc);
