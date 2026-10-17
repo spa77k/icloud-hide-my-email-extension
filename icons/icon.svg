@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="メールを非公開">
+  <defs>
+    <linearGradient id="bg" x1="18" y1="8" x2="112" y2="122" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2B9CFF"/>
+      <stop offset="1" stop-color="#0062C4"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#bg)"/>
+  <rect x="25" y="38" width="78" height="54" rx="10" fill="#FFFFFF"/>
+  <path d="M28 45.5 64 70l36-24.5" fill="none" stroke="#0071E3" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="99" cy="93" r="20" fill="#FFFFFF" stroke="#0071E3" stroke-width="5"/>
+  <path d="M99 84v18M90 93h18" fill="none" stroke="#0071E3" stroke-width="5" stroke-linecap="round"/>
+</svg>
