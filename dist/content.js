@@ -317,6 +317,19 @@
       return seen.has(key) ? !1 : (seen.add(key), !0);
     });
   }
+  function findEmailDetails(doc) {
+    let details = [];
+    for (let element of allElements(doc)) {
+      if (!element.classList.contains("EmailDetail") || !isVisible(element)) continue;
+      let hmeField = element.querySelector(".EmailDetail-hmeField");
+      if (!hmeField) continue;
+      let value = hmeField.querySelector(".LabeledField-value, p, span"), address = value ? exactAddressOf(value) : null;
+      if (!address) continue;
+      let title = element.querySelector(".PanelTitle-title, .modal-title, h1, h2"), label = title ? normalizeText(title.innerText ?? title.textContent ?? "") : "";
+      details.push({ element, address, label });
+    }
+    return details;
+  }
   function hasHmeControls(doc) {
     return findCreateButton(doc) || findByText(doc, ["\u65B0\u3057\u3044\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9\u3092\u8A2D\u5B9A", /set up a new email address/i], {
       maxTextLength: 80
@@ -514,7 +527,7 @@
     let excluded = collectExcludedSubtrees(doc), form = findCreateScreen(doc, clickableButton), candidateAddress = form ? candidateAddressFromScreen(form, excluded) : null;
     if (!candidateAddress)
       return { kind: "failed", clicked: !1, code: "RESULT_UNKNOWN", message: errorMessage("RESULT_UNKNOWN") };
-    let normalizedLabel = normalizeText(options.label ?? findHmeLabelInput(doc)?.value ?? ""), beforeAddresses = new Set(findAddressItems(doc).map((item) => item.address));
+    let normalizedLabel = normalizeText(options.label ?? findHmeLabelInput(doc)?.value ?? ""), beforeAddresses = new Set(findAddressItems(doc).map((item) => item.address)), beforeDetailAddresses = new Set(findEmailDetails(doc).map((detail) => detail.address));
     options.onClick?.();
     try {
       clickElement(clickableButton);
@@ -537,6 +550,11 @@
         if (candidateMatches.length === 1 && !beforeAddresses.has(candidateMatches[0].address))
           return { kind: "success", address: candidateMatches[0].address, copied: !1, verified: !0 };
       }
+      let detailMatches = findEmailDetails(doc).filter(
+        (detail) => detail.address === candidateAddress && labelsMatch(detail.label, normalizedLabel)
+      );
+      if (detailMatches.length >= 1 && !beforeDetailAddresses.has(detailMatches[0].address))
+        return { kind: "success", address: detailMatches[0].address, copied: !1, verified: !0 };
       await sleep(pollMs);
     }
     return {

@@ -197,6 +197,35 @@ function confirmButton(): HTMLButtonElement {
   return document.getElementById("create") as HTMLButtonElement;
 }
 
+// 実機で観測した作成済み詳細画面（.EmailDetail）に近い構造。
+// 非公開アドレスは .EmailDetail-hmeField、転送先は .EmailDetail-forwardToField。
+function emailDetailMarkup(label: string, hmeAddress: string, forwardAddress: string): string {
+  return `
+    <div class="EmailDetail">
+      <h1 class="Typography PanelTitle-title modal-title">${label}</h1>
+      <input name="hme-label" value="${label}" />
+      <textarea name="hme-note"></textarea>
+      <div class="EmailDetail-details">
+        <h2 class="Typography Typography-h2">詳細情報：</h2>
+        <div class="EmailDetail-detailsRow">
+          <div class="LabeledField EmailDetail-hmeField">
+            <label class="Typography LabeledField-label">メールを非公開：</label>
+            <p class="Typography LabeledField-value">${hmeAddress}</p>
+          </div>
+          <button class="button button-secondary button-rounded-rectangle" type="button">メールアドレスをコピー</button>
+        </div>
+        <div class="EmailDetail-detailsRow">
+          <div class="LabeledField EmailDetail-forwardToField">
+            <label class="Typography LabeledField-label">転送先：</label>
+            <p class="Typography LabeledField-value">${forwardAddress}</p>
+          </div>
+        </div>
+      </div>
+      <button class="button button-secondary button-rounded-rectangle" type="button">メールアドレスを無効化</button>
+    </div>
+  `;
+}
+
 describe("アドレス作成（作成ダイアログの候補と一覧の確認）", () => {
   it("転送先・アカウント・メモ・hiddenが混在しても、ダイアログの候補を返す", async () => {
     setBody(
@@ -367,6 +396,120 @@ describe("アドレス作成（作成ダイアログの候補と一覧の確認�
     });
 
     const result = await createAddress(document, { label: "example.com", timeoutMs: 80, pollMs: 5 });
+
+    expect(result).toMatchObject({ kind: "failed", clicked: true, code: "RESULT_UNKNOWN" });
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
+  it("作成済み詳細画面（.EmailDetail）で今回の候補とラベルが一致したら成功する", async () => {
+    setBody(`
+      <section id="form">
+        <h2>新しいメールアドレスを追加</h2>
+        <div id="candidate">candidate-detail@icloud.com</div>
+        <input name="hme-label" value="example.com" />
+        <button id="create" type="button">メールアドレスを作成</button>
+      </section>
+      <div id="detail-host"></div>
+    `);
+    const writeText = mockClipboard();
+    const detailHost = document.getElementById("detail-host")!;
+    document.getElementById("create")!.addEventListener("click", () => {
+      detailHost.innerHTML = emailDetailMarkup("example.com", "candidate-detail@icloud.com", "forwarding-owner@icloud.com");
+    });
+
+    const result = await createAddress(document, { timeoutMs: 200, pollMs: 5, label: "example.com" });
+
+    expect(result).toEqual({ kind: "success", address: "candidate-detail@icloud.com", copied: false, verified: true });
+    expect(result.kind === "success" ? result.address : "").not.toBe("forwarding-owner@icloud.com");
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
+  it("詳細画面の転送先だけに候補があっても成功にしない", async () => {
+    setBody(`
+      <section id="form">
+        <h2>新しいメールアドレスを追加</h2>
+        <div id="candidate">candidate-detail@icloud.com</div>
+        <input name="hme-label" value="example.com" />
+        <button id="create" type="button">メールアドレスを作成</button>
+      </section>
+      <div id="detail-host"></div>
+    `);
+    const detailHost = document.getElementById("detail-host")!;
+    document.getElementById("create")!.addEventListener("click", () => {
+      // 非公開アドレス欄（hmeField）は無く、転送先側だけに候補と同値を置く。
+      detailHost.innerHTML = `
+        <div class="EmailDetail">
+          <h1 class="Typography PanelTitle-title modal-title">example.com</h1>
+          <div class="EmailDetail-details">
+            <div class="EmailDetail-detailsRow">
+              <div class="LabeledField EmailDetail-forwardToField">
+                <label class="Typography LabeledField-label">転送先：</label>
+                <p class="Typography LabeledField-value">candidate-detail@icloud.com</p>
+              </div>
+            </div>
+          </div>
+        </div>`;
+    });
+
+    const result = await createAddress(document, { timeoutMs: 80, pollMs: 5, label: "example.com" });
+
+    expect(result).toMatchObject({ kind: "failed", clicked: true, code: "RESULT_UNKNOWN" });
+  });
+
+  it("詳細画面のラベルが今回と一致しなければ成功にしない", async () => {
+    setBody(`
+      <section id="form">
+        <h2>新しいメールアドレスを追加</h2>
+        <div id="candidate">candidate-detail@icloud.com</div>
+        <input name="hme-label" value="example.com" />
+        <button id="create" type="button">メールアドレスを作成</button>
+      </section>
+      <div id="detail-host"></div>
+    `);
+    const detailHost = document.getElementById("detail-host")!;
+    document.getElementById("create")!.addEventListener("click", () => {
+      detailHost.innerHTML = emailDetailMarkup("other.example", "candidate-detail@icloud.com", "forwarding-owner@icloud.com");
+    });
+
+    const result = await createAddress(document, { timeoutMs: 80, pollMs: 5, label: "example.com" });
+
+    expect(result).toMatchObject({ kind: "failed", clicked: true, code: "RESULT_UNKNOWN" });
+  });
+
+  it("既存同ラベルの古い詳細が現れるだけでは成功にしない", async () => {
+    setBody(`
+      <section id="form">
+        <h2>新しいメールアドレスを追加</h2>
+        <div id="candidate">candidate-new@icloud.com</div>
+        <input name="hme-label" value="example.com" />
+        <button id="create" type="button">メールアドレスを作成</button>
+      </section>
+      <div id="detail-host" hidden>${emailDetailMarkup("example.com", "existing-private@icloud.com", "forwarding-owner@icloud.com")}</div>
+    `);
+    const writeText = mockClipboard();
+    const form = document.getElementById("form")!;
+    const host = document.getElementById("detail-host")!;
+    document.getElementById("create")!.addEventListener("click", () => {
+      // 新規作成はせず、隠れていた旧詳細を見えるようにするだけ。
+      form.hidden = true;
+      host.hidden = false;
+    });
+
+    const result = await createAddress(document, { timeoutMs: 80, pollMs: 5, label: "example.com" });
+
+    expect(result).toMatchObject({ kind: "failed", clicked: true, code: "RESULT_UNKNOWN" });
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
+  it("候補と作成ボタンが残るだけ（確定前の見た目）では成功にしない", async () => {
+    setBody(hmeManagementMarkup({ candidate: "candidate-idle@icloud.com", label: "example.com" }));
+    const writeText = mockClipboard();
+    const create = confirmButton();
+    create.addEventListener("click", () => {
+      // 確定前と同じ見た目のまま何も変えない。
+    });
+
+    const result = await createAddress(document, { timeoutMs: 80, pollMs: 5, label: "example.com" });
 
     expect(result).toMatchObject({ kind: "failed", clicked: true, code: "RESULT_UNKNOWN" });
     expect(writeText).not.toHaveBeenCalled();

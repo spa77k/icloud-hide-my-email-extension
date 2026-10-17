@@ -168,11 +168,40 @@ function hmePage(currentMode) {
       window.__address = nextCandidate();
       candidate.textContent = window.__address;
     });
+    function showEmailDetail() {
+      // 実機の作成済み詳細画面（.EmailDetail）に近い構造。一覧には戻らない。
+      dialog.hidden = true;
+      const address = window.__address || candidate.textContent || "";
+      window.__address = address;
+      const detail = document.createElement("section");
+      detail.className = "EmailDetail";
+      detail.innerHTML =
+        '<h1 class="Typography PanelTitle-title modal-title"></h1>' +
+        '<input name="hme-label" />' +
+        '<div class="EmailDetail-details">' +
+        '<div class="EmailDetail-detailsRow"><div class="LabeledField EmailDetail-hmeField">' +
+        '<label class="Typography LabeledField-label">メールを非公開：</label>' +
+        '<p class="Typography LabeledField-value"></p></div>' +
+        '<button class="button button-secondary" type="button">メールアドレスをコピー</button></div>' +
+        '<div class="EmailDetail-detailsRow"><div class="LabeledField EmailDetail-forwardToField">' +
+        '<label class="Typography LabeledField-label">転送先：</label>' +
+        '<p class="Typography LabeledField-value">forwarding-owner@icloud.com</p></div></div>' +
+        '</div>';
+      detail.querySelector(".modal-title").textContent = label.value || "example.com";
+      detail.querySelector("input[name='hme-label']").value = label.value || "example.com";
+      detail.querySelector(".EmailDetail-hmeField .LabeledField-value").textContent = address;
+      document.body.appendChild(detail);
+    }
     create.addEventListener("click", () => {
       window.__createCalls += 1;
       if (mode === "error") {
         error.hidden = false;
         error.textContent = "メールアドレスを作成できませんでした。";
+        return;
+      }
+      if (mode === "detail") {
+        // 一覧に戻らず、作成済み詳細画面へ切り替わる。
+        showEmailDetail();
         return;
       }
       const finish = () => {

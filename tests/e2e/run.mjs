@@ -426,6 +426,39 @@ try {
     addressShown: Boolean(duplicateAddress),
   });
 
+  // 一覧に戻らず、作成済み詳細画面（.EmailDetail）へ切り替わる場合。
+  await setMode("detail");
+  await icloudPageInstance.reload();
+  await popup.bringToFront();
+  await clickCreate();
+  const detailAddress = await waitForResult();
+  await waitForCopied();
+  assert(
+    /^mock-candidate-\d+@icloud\.com$/.test(detailAddress),
+    `detail address was not the candidate: ${detailAddress}`,
+  );
+  assert(!detailAddress.includes("forwarding-owner"), "detail returned the forwarding address");
+  const detailFrame = await currentHmeFrame();
+  const detailValues = await detailFrame.evaluate(() => ({
+    hme: document.querySelector(".EmailDetail-hmeField .LabeledField-value")?.textContent ?? "",
+    forward: document.querySelector(".EmailDetail-forwardToField .LabeledField-value")?.textContent ?? "",
+    label: document.querySelector(".EmailDetail .modal-title")?.textContent ?? "",
+  }));
+  const detailClipboard = await readClipboard();
+  assert(detailValues.hme === detailAddress, "detail hmeField did not match the returned address");
+  assert(detailValues.forward === "forwarding-owner@icloud.com", "forward decoy was not present in the detail");
+  assert(detailValues.label === "example.com", "detail label did not match the job label");
+  assert(detailClipboard === detailAddress, "detail clipboard did not match the created address");
+  results.push({
+    scenario: "作成済み詳細画面（一覧に戻らない）",
+    addressShown: true,
+    hmeFieldMatched: detailValues.hme === detailAddress,
+    notForwarding: !detailAddress.includes("forwarding-owner"),
+    labelMatched: detailValues.label === "example.com",
+    clipboardMatched: detailClipboard === detailAddress,
+    copied: true,
+  });
+
   // ポップアップを閉じてもジョブは続き、閉じたまま完了することを
   // Service Workerの保存状態とタブ状態からテスト側で観測する。
   await setMode("slow");

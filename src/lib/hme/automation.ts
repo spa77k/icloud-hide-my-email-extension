@@ -251,6 +251,34 @@ export function findAddressItems(doc: Document): AddressListItem[] {
   });
 }
 
+export interface EmailDetailMatch {
+  element: HTMLElement;
+  address: string;
+  label: string;
+}
+
+/**
+ * 作成済みアドレスの詳細画面（実DOM: `.EmailDetail`）から、非公開アドレスの値
+ * （`.EmailDetail-hmeField` の `.LabeledField-value`）とラベル（タイトルh1）を読む。
+ * 転送先（`.EmailDetail-forwardToField`）は読まない。作成フォームや一覧は対象外。
+ */
+export function findEmailDetails(doc: Document): EmailDetailMatch[] {
+  const details: EmailDetailMatch[] = [];
+  for (const element of allElements(doc)) {
+    if (!element.classList.contains("EmailDetail")) continue;
+    if (!isVisible(element)) continue;
+    const hmeField = element.querySelector(".EmailDetail-hmeField");
+    if (!hmeField) continue;
+    const value = hmeField.querySelector(".LabeledField-value, p, span");
+    const address = value ? exactAddressOf(value) : null;
+    if (!address) continue;
+    const title = element.querySelector(".PanelTitle-title, .modal-title, h1, h2");
+    const label = title ? normalizeText((title as HTMLElement).innerText ?? title.textContent ?? "") : "";
+    details.push({ element, address, label });
+  }
+  return details;
+}
+
 export function hasHmeControls(doc: Document): boolean {
   if (findCreateButton(doc)) return true;
   if (
@@ -591,6 +619,7 @@ export async function createAddress(doc: Document, options: AutomationOptions = 
 
   const normalizedLabel = normalizeText(options.label ?? findHmeLabelInput(doc)?.value ?? "");
   const beforeAddresses = new Set(findAddressItems(doc).map((item) => item.address));
+  const beforeDetailAddresses = new Set(findEmailDetails(doc).map((detail) => detail.address));
   options.onClick?.();
   try {
     clickElement(clickableButton);
@@ -613,19 +642,29 @@ export async function createAddress(doc: Document, options: AutomationOptions = 
       };
     }
 
-    // フォームが開いている間に出たアドレスは候補の生成・再生成の可能性がある。
-    // 確定前に成功扱いしないため、フォームが閉じてからだけ成功を判定する。
+    // 一覧に戻った場合: 保持した今回の作成候補と一致する一覧項目に限る。
+    // ラベル見出しの完全一致も必要。候補が変わった場合や一致する項目が無い場合は、
+    // 本物を一意に保証できないため成功にせず未確認で止める（同ラベルの別項目を拾わない）。
     if (!isCreateFormOpen(doc, form)) {
       const items = findAddressItems(doc);
-      // 保持した今回の作成候補と一致する一覧項目に限る。ラベル見出しの完全一致も
-      // 必要。候補が変わった場合や一致する項目が無い場合は、本物を一意に保証
-      // できないため成功にせず未確認で止める（同じラベルの別項目を拾わない）。
       const candidateMatches = items.filter(
         (item) => item.address === candidateAddress && labelsMatch(item.label, normalizedLabel),
       );
       if (candidateMatches.length === 1 && !beforeAddresses.has(candidateMatches[0]!.address)) {
         return { kind: "success", address: candidateMatches[0]!.address, copied: false, verified: true };
       }
+    }
+
+    // 一覧に戻らず、作成済み詳細画面（.EmailDetail）へ切り替わった場合:
+    // 今回の候補と一致する .EmailDetail-hmeField の値と、今回のラベルに一致する
+    // タイトルがあるときだけ成功にする。転送先（.EmailDetail-forwardToField）は
+    // 読まない。確定前のフォームに候補があるだけでは成功にしない。
+    const details = findEmailDetails(doc);
+    const detailMatches = details.filter(
+      (detail) => detail.address === candidateAddress && labelsMatch(detail.label, normalizedLabel),
+    );
+    if (detailMatches.length >= 1 && !beforeDetailAddresses.has(detailMatches[0]!.address)) {
+      return { kind: "success", address: detailMatches[0]!.address, copied: false, verified: true };
     }
     await sleep(pollMs);
   }

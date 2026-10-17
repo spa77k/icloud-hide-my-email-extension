@@ -8,9 +8,9 @@
 | チェック | コマンド | 結果 |
 | --- | --- | --- |
 | 型チェック | `npm run typecheck` | 成功 |
-| 単体テスト | `npm test` | 72件すべて成功 |
+| 単体テスト | `npm test` | 77件すべて成功 |
 | 本番ビルド | `npm run build` | 成功（`dist/` を生成） |
-| Chrome E2E | `npm run test:e2e` | 8シナリオすべて成功 |
+| Chrome E2E | `npm run test:e2e` | 9シナリオすべて成功 |
 
 ### 単体テストの内訳
 
@@ -294,6 +294,8 @@ E2Eの補足: 拡張ポップアップはPlaywrightではタブとして開き�
   - `findCreateScreen` / `candidateAddressFromScreen`: 作成見出し「新しいメールアドレスを追加」・`input[name="hme-label"]`・確定ボタンの最も近い共通の先祖を作成画面とし、body/htmlまで広がる場合は特定不能として止める。作成画面内でも、転送先セクション（「転送先」見出しとradioを含む先祖）・`radiogroup`/`fieldset`・radioの`label`・hiddenを構造で除外する。完全一致アドレスがちょうど1つのときだけ候補にし、複数・無しは確定せず `RESULT_UNKNOWN`。
   - `findAddressItems` / `itemLabelOf`: 一覧項目は、見出し（`h1`-`h6`や`[role="heading"]`等）と、ちょうど1つの完全一致アドレスを持つ`button`/`li`/`article`/`[role="listitem"]`に限定。転送先・radio・作成フォーム内は除外し、親子の入れ子は内側の実項目だけ残して二重に数えない。
   - 確定後は、**保持した今回の作成候補と一致し、今回のラベル見出しが正規化完全一致する一覧項目**が、作成前のアドレス集合に無い新規項目として確認できた場合だけ成功にする。候補が確定時に変わった場合や、同じラベルの別の項目（隠れていた旧一覧が現れた場合を含む）しか無い場合は、本物を一意に保証できないため成功にせず `RESULT_UNKNOWN` で止める。
+  - `findEmailDetails`: 実機で観測した作成済み詳細画面 `.EmailDetail` から、非公開アドレス欄 `.EmailDetail-hmeField` の `.LabeledField-value` と、タイトル `h1`（ラベル）を読む。転送先 `.EmailDetail-forwardToField` は読まない。詳細画面では `input[name="hme-label"]` が残るが、ラベル欄が残ること自体は未完了としない。確定前のフォームに候補があるだけ・既存同ラベルの古い詳細が現れるだけ・全体の完了ボタンだけでは成功にしない（汎用の完了キーワードでの成功ルートは設けない）。
+  - `createAddress` は、一覧項目の照合と、`.EmailDetail-hmeField` の値が今回の候補・タイトルが今回のラベルに一致する詳細画面の照合の、どちらかが成立したときだけ `verified` 成功にする。作成前から `.EmailDetail` にあったアドレスは対象外（新規に現れた/切り替わったものを要求）。
 - `src/lib/protocol.ts` / `src/lib/job.ts` / `src/content.ts`: 作成結果に `verified` を持たせ、作成を確認できた結果だけを成功として扱う。`created` で `verified` でない結果は未確認にし、`restoreState` は修正前に保存された未確認の成功結果を「未確認」にしてアドレスを残さない。
 - `src/popup.ts`: 表示・自動コピー・手動コピーは `verified` の結果だけを対象にする（古い誤取得結果の再表示・再コピーを防ぐ）。`shouldAutoCopy` で自動コピーを判定。
 
@@ -301,8 +303,8 @@ E2Eの補足: 拡張ポップアップはPlaywrightではタブとして開き�
 
 | チェック | コマンド | 結果 |
 | --- | --- | --- |
-| 型チェック＋単体テスト＋本番ビルド | `npm run check` | 終了コード0、単体テスト72件すべて成功、`dist/` 更新 |
-| Chrome E2E | `npm run test:e2e` | 終了コード0、8シナリオすべて成功 |
+| 型チェック＋単体テスト＋本番ビルド | `npm run check` | 終了コード0、単体テスト77件すべて成功、`dist/` 更新 |
+| Chrome E2E | `npm run test:e2e` | 終了コード0、9シナリオすべて成功 |
 
 追加・更新した回帰テスト（単体）:
 
@@ -316,17 +318,24 @@ E2Eの補足: 拡張ポップアップはPlaywrightではタブとして開き�
 - ラベル見出しの完全一致（`icloud.com`が本文に含まれるだけ、`foo`と`foobar`を不一致）
 - 転送先本文に現在のラベルが含まれても一覧項目にしない
 - `li`>`button`の入れ子でも二重に数えず1件で成功
+- 作成済み詳細画面（`.EmailDetail`）で `.EmailDetail-hmeField` の値が候補・タイトルがラベルに一致したら成功
+- 詳細画面の転送先（`.EmailDetail-forwardToField`）だけに候補があっても成功にしない
+- 詳細画面のタイトルが今回のラベルと一致しなければ成功にしない
+- 既存同ラベルの古い詳細が現れるだけでは成功にしない
+- 候補と作成ボタンが残るだけ（確定前の見た目）では成功にしない
 - `verified`でない`created`は成功にしない／修正前の未確認成功は復元時に未確認／`shouldAutoCopy`は確認済みだけtrue
 
 E2E（模擬管理画面に転送先・アカウント・メモ・hiddenを混在。すべて同じ`@icloud.com`）:
 
-- 作成成功: 返る値とコピー値が `mock-candidate-N@icloud.com`（今回のHME）と一致。転送先・アカウント・メモ・hiddenのアドレスは結果に出ない（`hmeOnly: true`）。経過時間1865ms。
+- 作成成功: 返る値とコピー値が `mock-candidate-N@icloud.com`（今回のHME）と一致。転送先・アカウント・メモ・hiddenのアドレスは結果に出ない（`hmeOnly: true`）。経過時間1913ms。
+- 作成済み詳細画面（一覧に戻らない）: `.EmailDetail-hmeField` の値が返り値・コピー値と一致、転送先 `.EmailDetail-forwardToField` は返さない、タイトルも今回のラベルと一致（`hmeFieldMatched:true`, `notForwarding:true`, `labelMatched:true`, `clipboardMatched:true`）。
 - iCloudタブを再利用: reloadなしで2件目を作成し、別アドレス（`mock-candidate-1` と `mock-candidate-2`）、タブは1枚・inactive。
 - 作成失敗: `address:null`、`copied:false`、クリップボード不変。
 - ポップアップを閉じて再表示: 閉じたまま完了（`backgroundCopied:false`）、元サイトactive・iCloud inactive、開き直すとポップアップ側でコピーし、クリップボードが今回のHMEと一致。
 
 ### 10.4 実機確認と未確認の区別
 
-- 確認済み（指示元の実機観測）: 結果欄に転送先の本来のメールアドレスが表示・コピーされていた。
-- 未確認: 修正後の拡張を実際のログイン済みiCloud+で動かし、実機の管理画面（転送先・一覧・アカウント表示・メモの実際のDOM）で今回のHMEだけを返すこと。実アカウントのアドレス作成・無効化・削除は行っていません。
-- 未確認: 実際の一覧項目の見出し要素（実DOMはbutton内`h2`との観測）や転送先セクションの構造が、模擬と異なる場合の挙動。公式にDOM構造は公開されていないため、画面変更時は再確認が必要です。
+- 確認済み（指示元の実機観測・読み取りのみ）: 結果欄に転送先の本来のメールアドレスが表示・コピーされていた。既存のHME一覧項目は `button` 内に `h2`（ラベル）とアドレスspanを持つ。作成済み詳細画面は `.EmailDetail` で、非公開アドレスは `.EmailDetail-hmeField` の `.LabeledField-value`、転送先は `.EmailDetail-forwardToField`、タイトルは `h1.PanelTitle-title`。詳細画面でも `input[name="hme-label"]` が残る。転送先一覧は別セクション（`.ForwardList`）にある。
+- 未確認: **作成直後に必ず `.EmailDetail` 詳細画面へ遷移するかは未観測**です（指示元は既存詳細と一覧を読み取ったのみで、新規作成は行っていません）。今回の修正は、観測済みの詳細DOMが作成後に現れた場合に今回の候補と照合して成功にするものです。作成後に詳細へ遷移せず、別の完了画面（完了/作成済みの見出しやボタン）だけが出る場合は、一致する結果を確認できないため「未確認」で止まります。
+- 未確認: 修正後の拡張を実際のログイン済みiCloud+で動かし、実機で新規作成を完走して今回のHMEだけを返すこと。実アカウントのアドレス作成・無効化・削除は行っていません。
+- 追加で必要な実画面情報（判明したら fixtures を修正）: 作成確定後に詳細画面へ遷移するか、同じ作成ダイアログ内で完了表示に変わるか。完了表示の正確なクラス/ロール/文言。作成直後の一覧の並びとスクロール位置。これらの実DOMが取れれば、`.EmailDetail` 以外の完了画面にも最小限で対応できます。
