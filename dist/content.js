@@ -267,20 +267,39 @@
     return !isInteractive(ancestor) || isDisabled(ancestor) ? !1 : (clickElement(ancestor), !0);
   }
   var CREATE_LABELS = ["\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9\u3092\u4F5C\u6210", /^create email address$/i];
+  function isButtonLike(element) {
+    let tag = element.tagName.toLowerCase();
+    if (tag === "button") return !0;
+    if (tag === "input") {
+      let type = (element.getAttribute("type") ?? "text").toLowerCase();
+      return type === "submit" || type === "button";
+    }
+    return element.getAttribute("role") === "button" ? !0 : tag.endsWith("-button");
+  }
+  function matchesCreateLabel(element) {
+    return [
+      normalizeText(elementText(element)),
+      normalizeText(element.innerText ?? element.textContent ?? "")
+    ].some(
+      (text) => CREATE_LABELS.some((label) => typeof label == "string" ? text === normalizeText(label) : label.test(text))
+    );
+  }
+  function findButtonElement(element, maxDepth = 4) {
+    let current = element;
+    for (let depth = 0; current && depth < maxDepth; depth += 1) {
+      if (isButtonLike(current)) return current;
+      current = parentAcrossShadow(current);
+    }
+    return null;
+  }
   function findCreateButton(doc) {
     let candidates = findAllByText(doc, ["\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9\u3092\u4F5C\u6210", /create email address/i], {
-      interactiveOnly: !0,
       maxTextLength: 50
     });
     for (let element of candidates) {
-      if (![
-        normalizeText(elementText(element)),
-        normalizeText(element.innerText ?? element.textContent ?? "")
-      ].some(
-        (text) => CREATE_LABELS.some((label) => typeof label == "string" ? text === normalizeText(label) : label.test(text))
-      )) continue;
-      let clickable = clickableAncestor(element);
-      return clickable instanceof HTMLElement ? clickable : element;
+      if (!matchesCreateLabel(element)) continue;
+      let button = findButtonElement(element);
+      if (button) return button;
     }
     return null;
   }

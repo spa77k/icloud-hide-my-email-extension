@@ -3,6 +3,7 @@ import {
   AutomationError,
   createAddress,
   detectAuth,
+  findCreateButton,
   openHmeTile,
   prepareAddress,
 } from "../src/lib/hme/automation";
@@ -307,6 +308,110 @@ describe("アドレス作成", () => {
 
     expect(result).toMatchObject({ kind: "failed", clicked: false, code: "UI_NOT_FOUND" });
     expect(fakeClick).not.toHaveBeenCalled();
+  });
+
+  it("ui-panel祖先があっても確定ボタンだけを押し、候補再生成ボタンは押さない", async () => {
+    setBody(`
+      <form id="dialog" role="dialog" aria-modal="true">
+        <button id="regenerate" type="button">別のメールアドレスを使用</button>
+        <div id="candidate" class="candidate-address">candidate-ui@icloud.com</div>
+        <label aria-hidden="true">アドレスにラベルを追加（例：買い物）</label>
+        <input id="label" type="text" name="hme-label" />
+        <ui-panel>
+          <div class="button-bar-side"><button id="confirm" type="button">メールアドレスを作成</button></div>
+        </ui-panel>
+      </form>
+      <ul id="addresses"></ul>
+    `);
+    const writeText = mockClipboard();
+    const dialog = document.getElementById("dialog")!;
+    const candidate = document.getElementById("candidate")!;
+    const confirmClicks = vi.fn();
+    const regenerateClicks = vi.fn();
+    document.getElementById("confirm")!.addEventListener("click", () => {
+      confirmClicks();
+      const address = candidate.textContent ?? "";
+      dialog.remove();
+      appendCreatedAddress(address);
+    });
+    document.getElementById("regenerate")!.addEventListener("click", () => {
+      regenerateClicks();
+      candidate.textContent = "regenerated-candidate@icloud.com";
+    });
+
+    const result = await createAddress(document, { timeoutMs: 500, pollMs: 5 });
+
+    expect(result).toEqual({ kind: "success", address: "candidate-ui@icloud.com", copied: true });
+    expect(confirmClicks).toHaveBeenCalledTimes(1);
+    expect(regenerateClicks).not.toHaveBeenCalled();
+    expect(writeText).toHaveBeenCalledWith("candidate-ui@icloud.com");
+  });
+});
+
+describe("確定ボタンの探索", () => {
+  it("ui-panelの祖先があっても、実際の確定ボタン（confirm）を返す", () => {
+    setBody(`
+      <ui-panel>
+        <button id="regenerate" type="button">別のメールアドレスを使用</button>
+        <div class="button-bar-side"><button id="confirm" type="button">メールアドレスを作成</button></div>
+      </ui-panel>
+    `);
+
+    expect(findCreateButton(document)?.id).toBe("confirm");
+  });
+
+  it("非interactiveな親divから広いui-panel祖先へ乗り換えない（旧不具合の固定）", () => {
+    setBody(`
+      <ui-panel>
+        <button id="regenerate" type="button">別のメールアドレスを使用</button>
+        <div class="button-bar-side"><button id="confirm" type="button">メールアドレスを作成</button></div>
+      </ui-panel>
+    `);
+    const bar = document.querySelector(".button-bar-side")!;
+
+    // 旧実装が使っていた祖先探索では、確定ボタンではなくui-panelが選ばれていた。
+    expect(clickableAncestor(bar).tagName).toBe("UI-PANEL");
+    // 修正後は実際の確定ボタンを返す。
+    expect(findCreateButton(document)?.id).toBe("confirm");
+  });
+
+  it("ボタン内のspanに文言があっても、そのボタンを返す", () => {
+    setBody('<button id="confirm" type="button"><span>メールアドレスを作成</span></button>');
+
+    expect(findCreateButton(document)?.id).toBe("confirm");
+  });
+
+  it("aria-labelだけでも確定ボタンを返す", () => {
+    setBody('<button id="confirm" type="button" aria-label="メールアドレスを作成"></button>');
+
+    expect(findCreateButton(document)?.id).toBe("confirm");
+  });
+
+  it("aria-labelと表示名が同じでも確定ボタンを返す", () => {
+    setBody('<button id="confirm" type="button" aria-label="メールアドレスを作成">メールアドレスを作成</button>');
+
+    expect(findCreateButton(document)?.id).toBe("confirm");
+  });
+
+  it("英語の確定ボタンを返す", () => {
+    setBody('<button id="confirm" type="button">Create email address</button>');
+
+    expect(findCreateButton(document)?.id).toBe("confirm");
+  });
+
+  it("無効化された確定ボタンでも要素自体は返す", () => {
+    setBody('<button id="confirm" type="button" disabled>メールアドレスを作成</button>');
+
+    expect(findCreateButton(document)?.id).toBe("confirm");
+  });
+
+  it("shadow DOM内の確定ボタンを返す", () => {
+    setBody('<div id="host"></div>');
+    const host = document.getElementById("host")!;
+    const shadow = host.attachShadow({ mode: "open" });
+    shadow.innerHTML = '<button id="confirm" type="button">メールアドレスを作成</button>';
+
+    expect(findCreateButton(document)?.id).toBe("confirm");
   });
 });
 

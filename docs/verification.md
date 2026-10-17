@@ -8,7 +8,7 @@
 | チェック | コマンド | 結果 |
 | --- | --- | --- |
 | 型チェック | `npm run typecheck` | 成功 |
-| 単体テスト | `npm test` | 46件すべて成功 |
+| 単体テスト | `npm test` | 55件すべて成功 |
 | 本番ビルド | `npm run build` | 成功（`dist/` を生成） |
 | Chrome E2E | `npm run test:e2e` | 5シナリオすべて成功 |
 
@@ -165,27 +165,28 @@ E2Eの模擬iCloud画面も、実機の `article` / `div.hide-my-email-tile` / �
 
 - 旧 `createAddress` は、クリック前のアドレス集合（`before`）に無いアドレスが1つでも見つかると成功にしていました。HMEフォームは確定前に候補アドレスを表示し、「別のメールアドレスを使用」で候補を再生成します。そのため、確定していなくても候補の生成・再生成だけで「fresh」と判定され、コピーまで進んでいました。
 - `findCreateButton` は部分一致で確定ボタンを探していたため、確定ボタン以外でも「メールアドレスを作成」を含む操作要素があると誤って押す可能性がありました。
+- さらに、`findAllByText` を `interactiveOnly` で絞ると、確定ボタンを包む非interactiveな `div` の操作要素として、`clickableAncestor` が広い `ui-*` 祖先（`ui-panel` など）を返していました。指示元の再現DOM `<ui-panel><button id="regenerate">別のメールアドレスを使用</button><div class="button-bar-side"><button id="confirm">メールアドレスを作成</button></div></ui-panel>` では、`findCreateButton` が `confirm` ではなく `UI-PANEL` を返し、`clickElement` が `ui-panel` 直下の最初のボタン（`別のメールアドレスを使用`）を押して候補を再生成するだけになっていました。候補再生成だけで止まる実機の現象と一致します。
 
 ### 8.2 修正
 
 - `src/lib/hme/automation.ts`
-  - `findCreateButton`: 操作要素自身のテキストが「メールアドレスを作成」または `/^create email address$/i` と完全一致する場合だけ返すようにした。部分一致だけの見出し・説明・類似ボタンは押さない。
+  - `findCreateButton`: 「メールアドレスを作成」または `/^create email address$/i` と完全一致するラベルを持つ要素だけを対象にし、`button`／submit系`input`／`role="button"`／`*-button` の実際の確定ボタンそのものを返す。ボタン内`span`の文言のときだけボタン祖先までさかのぼり、非interactiveな親`div`から広い `ui-*` 祖先（`ui-panel` 等）へ乗り換えて別ボタンに置き換わることはしない。
   - `extractEmails(doc, scope?)`: フォーム内だけのアドレスを取れるようにした。
   - `findFormContainer` / `isCreateFormOpen`: 確定ボタンを含むフォーム（`role="dialog"` 等）の境界を取り、確定ボタンが残っている間、またはフォーム境界がDOM上に表示されている間は「フォームが開いている」と判定する。
   - `createAddress`: フォームが開いている間に出たアドレスは候補の生成・再生成として無視する。フォームが閉じてから、確定前にフォーム内にあった候補アドレスが作成済みとして見える場合、または新しいアドレスが現れた場合だけ成功とし、そのときだけコピーする。フォームが閉じないまま失敗・タイムアウトした場合は `RESULT_UNKNOWN`（未確認）にしてコピーしない。
-- `tests/automation.test.ts` / `tests/content.test.ts`: 実画面に近いダイアログ（候補・別のメールアドレスを使用・ラベル・任意メモ・戻る・確定）を用意し、上記を回帰テスト化。
-- `tests/e2e/mock-server.mjs` / `tests/e2e/run.mjs`: 模擬HME画面を同じ構造にし、確定1回・候補再生成0回・候補と一致するアドレスの成功・コピーを確認。
+- `tests/automation.test.ts` / `tests/content.test.ts`: 実画面に近いダイアログ（候補・別のメールアドレスを使用・ラベル・任意メモ・戻る・確定）と、`ui-panel` 祖先の再現DOMを用意し、上記を回帰テスト化。
+- `tests/e2e/mock-server.mjs` / `tests/e2e/run.mjs`: 模擬HME画面の作成フォームを `ui-panel` の下に候補再生成ボタンと `div` 内の確定ボタンを持つ構造にし、確定1回・候補再生成0回・候補と一致するアドレスの成功・コピーを確認。この構造は旧実装では `ui-panel` 直下の候補再生成ボタンを押して失敗する。
 
 ### 8.3 自動チェック（この修正での実行結果）
 
 | チェック | コマンド | 結果 |
 | --- | --- | --- |
-| 型チェック＋単体テスト＋本番ビルド | `npm run check` | 終了コード0、単体テスト46件すべて成功、`dist/` 更新 |
+| 型チェック＋単体テスト＋本番ビルド | `npm run check` | 終了コード0、単体テスト55件すべて成功、`dist/` 更新 |
 | Chrome E2E | `npm run test:e2e` | 終了コード0、5シナリオすべて成功 |
 
 E2E「作成成功」の実測:
 
-- 経過時間 3710ms（模擬画面の値。実アカウントの作成時間ではない）
+- 経過時間 2943ms（模擬画面の値。実アカウントの作成時間ではない）
 - 確定ボタン1回（`createCalls: 1`）
 - 候補再生成0回（`regenerateCalls: 0`）
 - 表示したアドレスと模擬HMEが作成した候補が一致（`candidateMatched: true`）
@@ -203,11 +204,16 @@ E2E「作成成功」の実測:
 - 確定ボタンが無ければクリックせず失敗を返す
 - 確定ボタンにaria-labelが付いていても、表示テキストが一致すれば押す
 - 確定ラベルと部分一致するだけのボタンは押さない
+- 再現DOM（`ui-panel` 祖先）で `findCreateButton` が `confirm` を返す
+- 非interactiveな親`div`から広い`ui-panel`祖先へ乗り換えない（旧不具合の固定。旧実装の祖先探索が`UI-PANEL`を返すことも固定）
+- `ui-panel`祖先下でも `createAddress` が確定1回・候補再生成0回で成功する
+- ボタン内`span`文言、`aria-label`のみ、`aria-label`＋表示名、英語、`disabled`、shadow DOM内の確定ボタン探索を維持
 - 従来のカード遷移（英語・日本語・別カード・hidden・disabled）の回帰を維持
 
 ### 8.4 実機確認と未確認の区別
 
 - 確認済み（指示元の実機観測）: 実機ではフォームと確定ボタンが残ったまま、拡張機能が候補アドレスを成功として表示していた（誤認）。実DOMの確定ボタンは `<button ...>メールアドレスを作成</button>`、ラベルは `input[name="hme-label"]`、任意メモ、候補表示、「別のメールアドレスを使用」「戻る」「閉じる」がある。指示元は確定ボタンを押していない。
+- 確認済み（指示元の独立検証・再現）: 再現DOM `<ui-panel><button id="regenerate">別のメールアドレスを使用</button><div class="button-bar-side"><button id="confirm">メールアドレスを作成</button></div></ui-panel>` をJSDOMで実行すると、旧 `findCreateButton` は `selectedTag="UI-PANEL"`, `selectedId=""` を返し、`clickElement` が `ui-panel` 直下の `regenerate` を押していた。今回この再現を回帰テストに固定した。
 - 未確認: 修正後の拡張機能を実機のログイン済みiCloud+で動かし、実際の「メールアドレスを作成」を確定して作成・コピーまで通すことは確認していません。実アカウントのアドレス作成・無効化・削除は行っていません。
-- 模擬画面で確認したこと: 候補が確定前に表示される構造で、確定1回・候補再生成0回・候補と一致するアドレスの成功・コピー、および候補だけが出た場合に成功扱いしないこと。
+- 模擬画面で確認したこと: `ui-panel` 祖先の下に候補再生成ボタンと `div` 内の確定ボタンがある構造で、確定1回・候補再生成0回・候補と一致するアドレスの成功・コピー。候補だけが出た場合に成功扱いしないこと。
 - 読み込み済み拡張への反映手順は 7.5 と同じ（`npm run build` 済み、`chrome://extensions` で更新、iCloud+タブを再読み込み）。

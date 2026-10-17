@@ -16,6 +16,8 @@ const styles = `
     #tile p { margin: 0; color: #6e6e73; font-size: 12px; }
     iframe { width: 560px; height: 420px; margin-top: 18px; border: 1px solid #d9d9de; border-radius: 12px; }
     #dialog { margin-top: 16px; padding: 14px; border: 1px solid #d9d9de; border-radius: 10px; }
+    ui-panel { display: block; }
+    .button-bar-side { margin-top: 8px; }
     label { display: block; font-size: 12px; font-weight: 600; }
     input { width: 280px; height: 32px; margin-top: 5px; padding: 0 8px; }
     button { margin-top: 10px; min-height: 32px; padding: 0 12px; }
@@ -99,15 +101,17 @@ function hmePage(currentMode) {
   <button id="close-hme" aria-label="閉じる">閉じる</button>
   <ul id="addresses">${existing}</ul>
   <section id="dialog" role="dialog" aria-modal="true" hidden>
-    <h2>新しいメールアドレスを追加</h2>
-    <div id="candidate" class="candidate-address"></div>
-    <button id="regenerate" type="button">別のメールアドレスを使用</button>
-    <label aria-hidden="true">アドレスにラベルを追加（例：買い物）</label>
-    <input id="label" type="text" name="hme-label" />
-    <textarea id="memo" placeholder="メモ（任意）"></textarea>
-    <button id="back" type="button">戻る</button>
-    <button id="create" type="button">メールアドレスを作成</button>
-    <div id="error" role="alert" hidden></div>
+    <ui-panel>
+      <h2>新しいメールアドレスを追加</h2>
+      <div id="candidate" class="candidate-address"></div>
+      <label aria-hidden="true">アドレスにラベルを追加（例：買い物）</label>
+      <input id="label" type="text" name="hme-label" />
+      <textarea id="memo" placeholder="メモ（任意）"></textarea>
+      <button id="regenerate" type="button">別のメールアドレスを使用</button>
+      <button id="back" type="button">戻る</button>
+      <div class="button-bar-side"><button id="create" type="button">メールアドレスを作成</button></div>
+      <div id="error" role="alert" hidden></div>
+    </ui-panel>
   </section>
   <script>
     const mode = ${JSON.stringify(currentMode)};

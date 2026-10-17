@@ -192,26 +192,58 @@ export function openHmeTile(doc: Document): boolean {
 const CREATE_LABELS = ["メールアドレスを作成", /^create email address$/i] as const;
 
 /**
- * 確定ボタンを完全一致で探す。部分一致だと見出しや説明文の入った要素を
- * 押してしまうことがあるため、操作要素自身のテキストが確定ラベルと
- * 完全に一致するものだけを対象にする。
+ * 確定ボタンとして扱える要素か。
+ * `ui-panel` のような広い `ui-*` 祖先を操作要素とみなさないため、
+ * button / submit系input / role="button" / `*-button` のカスタム要素に限定する。
+ */
+function isButtonLike(element: Element): boolean {
+  const tag = element.tagName.toLowerCase();
+  if (tag === "button") return true;
+  if (tag === "input") {
+    const type = (element.getAttribute("type") ?? "text").toLowerCase();
+    return type === "submit" || type === "button";
+  }
+  if (element.getAttribute("role") === "button") return true;
+  return tag.endsWith("-button");
+}
+
+function matchesCreateLabel(element: Element): boolean {
+  const texts = [
+    normalizeText(elementText(element)),
+    normalizeText((element as HTMLElement).innerText ?? element.textContent ?? ""),
+  ];
+  return texts.some((text) =>
+    CREATE_LABELS.some((label) => (typeof label === "string" ? text === normalizeText(label) : label.test(text))),
+  );
+}
+
+/**
+ * 一致した要素から、実際の確定ボタンそのものを返す。
+ * ボタン内のspan文言の場合だけボタン祖先までさかのぼり、
+ * 非interactiveな親divから広い `ui-*` 祖先へ乗り換えることはしない。
+ */
+function findButtonElement(element: Element, maxDepth = 4): HTMLElement | null {
+  let current: Element | null = element;
+  for (let depth = 0; current && depth < maxDepth; depth += 1) {
+    if (isButtonLike(current)) return current as HTMLElement;
+    current = parentAcrossShadow(current);
+  }
+  return null;
+}
+
+/**
+ * 確定ボタンを完全一致で探し、実際の確定ボタン要素そのものを返す。
+ * 部分一致の見出し・説明や、`ui-panel` などの広い祖先で別ボタンに
+ * 置き換わらないようにする。
  */
 export function findCreateButton(doc: Document): HTMLElement | null {
   const candidates = findAllByText(doc, ["メールアドレスを作成", /create email address/i], {
-    interactiveOnly: true,
     maxTextLength: 50,
   });
   for (const element of candidates) {
-    const texts = [
-      normalizeText(elementText(element)),
-      normalizeText((element as HTMLElement).innerText ?? element.textContent ?? ""),
-    ];
-    const matches = texts.some((text) =>
-      CREATE_LABELS.some((label) => (typeof label === "string" ? text === normalizeText(label) : label.test(text))),
-    );
-    if (!matches) continue;
-    const clickable = clickableAncestor(element);
-    return clickable instanceof HTMLElement ? clickable : element;
+    if (!matchesCreateLabel(element)) continue;
+    const button = findButtonElement(element);
+    if (button) return button;
   }
   return null;
 }
