@@ -166,3 +166,7 @@ CHROME_PATH="/path/to/Google Chrome for Testing" npm run test:e2e
 - [将隐藏邮件地址与「通过 Apple 登录」搭配使用](https://support.apple.com/zh-cn/105078)
 - [Manifest 文件格式（Chrome for Developers）](https://developer.chrome.com/docs/extensions/reference/manifest)
 - [Chrome 扩展国际化（Chrome for Developers）](https://developer.chrome.com/docs/extensions/reference/api/i18n)
+
+## 许可证
+
+本项目采用 MIT License。完整内容请参阅 [LICENSE](LICENSE)。

@@ -166,3 +166,7 @@ CHROME_PATH="/path/to/Google Chrome for Testing" npm run test:e2e
 - [How to use Hide My Email with Sign in with Apple](https://support.apple.com/en-us/105078)
 - [Manifest file format (Chrome for Developers)](https://developer.chrome.com/docs/extensions/reference/manifest)
 - [Chrome extension internationalization (Chrome for Developers)](https://developer.chrome.com/docs/extensions/reference/api/i18n)
+
+## License
+
+Released under the MIT License. See [LICENSE](LICENSE) for the full text.

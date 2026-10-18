@@ -166,3 +166,7 @@ CHROME_PATH="/path/to/Google Chrome for Testing" npm run test:e2e
 - [‘Apple로 로그인’과 함께 나의 이메일 가리기 사용](https://support.apple.com/ko-kr/105078)
 - [Manifest 파일 형식(Chrome for Developers)](https://developer.chrome.com/docs/extensions/reference/manifest)
 - [Chrome 확장 프로그램 국제화(Chrome for Developers)](https://developer.chrome.com/docs/extensions/reference/api/i18n)
+
+## 라이선스
+
+MIT License입니다. 전문은 [LICENSE](LICENSE)를 참조하세요.

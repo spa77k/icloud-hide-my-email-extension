@@ -167,3 +167,7 @@ CHROME_PATH="/path/to/Google Chrome for Testing" npm run test:e2e
 - [「Appleでサインイン」で「メールを非公開」を使う方法（日本語）](https://support.apple.com/ja-jp/105078)
 - [Manifest file format（Chrome for Developers）](https://developer.chrome.com/docs/extensions/reference/manifest)
 - [Chrome extension internationalization（Chrome for Developers）](https://developer.chrome.com/docs/extensions/reference/api/i18n)
+
+## ライセンス
+
+MIT License です。全文は [LICENSE](LICENSE) を参照してください。

@@ -39,6 +39,8 @@ await cp(path.join(root, "src", "_locales"), path.join(outdir, "_locales"), { re
 
 await cp(path.join(root, "icons"), path.join(outdir, "icons"), { recursive: true });
 
+await cp(path.join(root, "LICENSE"), path.join(outdir, "LICENSE"));
+
 const manifest = JSON.parse(await readFile(path.join(root, "src", "manifest.json"), "utf8"));
 if (e2e) {
   manifest.name = "iCloud Hide My Email (E2E)";
